@@ -42,11 +42,12 @@ def random_iban_ch(rng: np.random.Generator) -> str:
 # ---------------------------------------------------------------------------
 # Vectorised distributions
 # ---------------------------------------------------------------------------
-SALUTATIONS = {
-    "de": {"Herr": 0.55, "Frau": 0.42, "Dr.": 0.03},
-    "fr": {"Monsieur": 0.55, "Madame": 0.42, "Dr.": 0.03},
-    "it": {"Signor": 0.55, "Signora": 0.42, "Dr.": 0.03},
+GENDERED_SALUTATIONS = {
+    ("de", "M"): "Herr",     ("de", "F"): "Frau",
+    ("fr", "M"): "Monsieur", ("fr", "F"): "Madame",
+    ("it", "M"): "Signor",   ("it", "F"): "Signora",
 }
+DR_RATE = 0.03  # share of records where salutation is "Dr." instead of gendered form
 
 CIVIL_STATUS    = ["single", "married", "divorced", "widowed", "registered_partnership", "separated"]
 CIVIL_W         = [0.32, 0.51, 0.10, 0.04, 0.02, 0.01]
@@ -95,18 +96,36 @@ def generate_clients_and_addresses(n: int) -> tuple[pd.DataFrame, pd.DataFrame]:
         for c in plz_rows["canton_code"]
     ])
 
-    # Salutation per language.
-    salutations = []
-    for lang in languages:
-        sal_map = SALUTATIONS[lang]
-        salutations.append(rngmod.weighted_choice(rng, list(sal_map.keys()), list(sal_map.values())))
+    # Pick a coarse gender per client, then derive name + matching salutation.
+    # Salutation defaults to gender-correct; salutation_gender_mismatch
+    # inconsistency injects a small share of swaps later.
+    genders = rng.choice(["M", "F"], size=n).tolist()
 
+    salutations: list[str] = []
     first_names, middle_names, last_names = [], [], []
-    for lang in languages:
+    for lang, g in zip(languages, genders):
         f = fakers[lang]
-        first_names.append(f.first_name())
-        middle_names.append(f.first_name() if rng.random() < 0.07 else None)
+        # First name from gendered Faker pool. Falls back to f.first_name()
+        # if the locale doesn't expose a gendered helper.
+        try:
+            fn = f.first_name_male() if g == "M" else f.first_name_female()
+        except Exception:
+            fn = f.first_name()
+        first_names.append(fn)
+        if rng.random() < 0.07:
+            try:
+                mn = f.first_name_male() if g == "M" else f.first_name_female()
+            except Exception:
+                mn = f.first_name()
+            middle_names.append(mn)
+        else:
+            middle_names.append(None)
         last_names.append(f.last_name())
+
+        if rng.random() < DR_RATE:
+            salutations.append("Dr.")
+        else:
+            salutations.append(GENDERED_SALUTATIONS[(lang, g)])
 
     civil   = rngmod.weighted_array(rng, CIVIL_STATUS, CIVIL_W, n)
     regimes = [

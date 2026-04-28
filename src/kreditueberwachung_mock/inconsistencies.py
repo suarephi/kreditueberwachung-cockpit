@@ -166,6 +166,19 @@ def apply_inconsistencies(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataF
         clients.loc[m, "salutation"] = clients.loc[m, "salutation"].map(sal_map).fillna(clients.loc[m, "salutation"])
         _bump("salutation_variant", m.sum())
 
+    # --- Salutation gender mismatch (Herr↔Frau, etc.) ---
+    m = _mask(rng, n_c, config.ERROR_RATES["salutation_gender_mismatch"])
+    if m.any():
+        gender_flip = {
+            "Herr":     "Frau",     "Frau":     "Herr",
+            "Monsieur": "Madame",   "Madame":   "Monsieur",
+            "Signor":   "Signora",  "Signora":  "Signor",
+        }
+        clients.loc[m, "salutation"] = clients.loc[m, "salutation"].map(
+            lambda s: gender_flip.get(s, s)
+        )
+        _bump("salutation_gender_mismatch", m.sum())
+
     # --- Date of birth: dot format / 2-digit year ---
     m = _mask(rng, n_c, config.ERROR_RATES["date_dotformat"])
     if m.any():

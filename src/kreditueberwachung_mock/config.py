@@ -124,6 +124,7 @@ ERROR_RATES = {
     "name_hyphen_variant":          0.010,
     "name_trailing_whitespace":     0.012,
     "salutation_variant":           0.025,
+    "salutation_gender_mismatch":   0.020,   # Herr↔Frau (etc.) data-entry slip
     "date_dotformat":               0.050,   # birth_date stored DD.MM.YYYY
     "date_2digit_year":             0.010,
     "phone_format_variant":         0.080,   # not really an "error", but format mix
