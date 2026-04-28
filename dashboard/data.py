@@ -1,7 +1,9 @@
 """Cached SQL helpers (SQLite local, PostgreSQL on Streamlit Cloud)."""
 from __future__ import annotations
 import datetime as dt
+import time
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError, DBAPIError
 import streamlit as st
 import pandas as pd
 
@@ -12,16 +14,29 @@ from . import db
 # Engine + helpers
 # ---------------------------------------------------------------------------
 def query(sql: str, params: dict | tuple | None = None) -> pd.DataFrame:
-    """Run a SELECT and return a DataFrame. Accepts either dict (named) or tuple
-    (positional, but discouraged — pass dicts)."""
-    if params is None:
+    """Run a SELECT and return a DataFrame.
+
+    Adds one retry with a brief sleep when the connection is dropped by
+    Supabase's PgBouncer mid-handshake (transient `OperationalError`).
+    """
+    if not params or isinstance(params, tuple):
         params = {}
-    if isinstance(params, tuple) and len(params) == 0:
-        params = {}
-    if isinstance(params, tuple):
-        # Legacy: caller passed empty tuple.
-        params = {}
-    return pd.read_sql_query(text(sql), db.engine(), params=params or {})
+    last_err: Exception | None = None
+    for attempt in range(2):
+        try:
+            return pd.read_sql_query(text(sql), db.engine(), params=params or {})
+        except (OperationalError, DBAPIError) as e:
+            last_err = e
+            if attempt == 0:
+                time.sleep(0.6)
+                # Drop the cached engine on the second try — PgBouncer may
+                # have invalidated all server-side state.
+                try:
+                    db.engine.clear()
+                except Exception:
+                    pass
+                continue
+            raise
 
 
 def today() -> dt.date:

@@ -15,4 +15,4 @@ runOnSave = true
 
 [client]
 toolbarMode = "minimal"
-showErrorDetails = true
+showErrorDetails = "full"
