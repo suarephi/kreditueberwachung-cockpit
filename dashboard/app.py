@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 from kreditueberwachung_mock import config           # noqa: E402
-from dashboard import data, style, charts, coords    # noqa: E402
+from dashboard import data, db, style, charts, coords  # noqa: E402
 
 st.set_page_config(
     page_title="Kreditüberwachung — Übersicht",
@@ -22,9 +22,23 @@ style.apply_style()
 style.require_password()
 style.topnav("Übersicht")
 
-if not config.DB_PATH.exists():
-    style.page_head("Übersicht", "Datenbank nicht gefunden",
-                    "Bitte zuerst <code>python scripts/generate.py</code> ausführen.")
+# Probe the configured database. On Streamlit Cloud this is Postgres via secrets;
+# locally it falls back to SQLite at config.DB_PATH.
+try:
+    _probe = data.query("SELECT COUNT(*) AS n FROM client").iloc[0]["n"]
+    _has_data = int(_probe) > 0
+except Exception as _e:
+    _has_data = False
+    _probe_err = str(_e)[:300]
+
+if not _has_data:
+    style.page_head("Übersicht", "Datenbank nicht erreichbar",
+                    "Postgres-Verbindung fehlt oder Datensatz nicht migriert. "
+                    "Lokal: <code>python scripts/generate.py</code>. "
+                    "Cloud: <code>scripts/migrate_to_postgres.py</code> mit DATABASE_URL.")
+    if "_probe_err" in dir():
+        st.code(_probe_err, language="text")
+    style.footer()
     st.stop()
 
 # ---------------------------------------------------------------------------
