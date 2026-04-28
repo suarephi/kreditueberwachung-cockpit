@@ -64,8 +64,8 @@ with left:
     st.markdown("**Tranchen pro Kredit**")
     tcnt = data.query("""
         SELECT n_tranches, COUNT(*) AS n_loans,
-               ROUND(COUNT(*)*100.0/SUM(COUNT(*)) OVER (), 2) AS pct
-          FROM (SELECT loan_id, COUNT(*) AS n_tranches FROM tranche GROUP BY loan_id)
+               ROUND(CAST(COUNT(*)*100.0/SUM(COUNT(*)) OVER () AS numeric), 2) AS pct
+          FROM (SELECT loan_id, COUNT(*) AS n_tranches FROM tranche GROUP BY loan_id) t
          GROUP BY n_tranches ORDER BY n_tranches
     """).rename(columns={"n_tranches": "Tranchen", "n_loans": "Kredite", "pct": "Anteil (%)"})
     st.dataframe(tcnt.style.format({"Kredite": "{:,.0f}", "Anteil (%)": "{:.2f}"}),
@@ -79,9 +79,9 @@ with right:
     st.markdown("**Tranchen-Typen-Verteilung**")
     ttype = data.query("""
         SELECT tranche_type, COUNT(*) AS n_tranches,
-               ROUND(SUM(amount)/1e6, 1) AS total_mchf,
-               ROUND(AVG(interest_rate_pct), 2) AS avg_rate
-          FROM tranche GROUP BY 1
+               ROUND(CAST(SUM(amount)/1e6      AS numeric), 1) AS total_mchf,
+               ROUND(CAST(AVG(interest_rate_pct) AS numeric), 2) AS avg_rate
+          FROM tranche GROUP BY tranche_type
     """).rename(columns={"tranche_type": "Typ", "n_tranches": "Tranchen",
                           "total_mchf": "Summe (Mio. CHF)", "avg_rate": "Ø Zins (%)"})
     st.dataframe(ttype.style.format({"Tranchen": "{:,.0f}",

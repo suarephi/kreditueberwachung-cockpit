@@ -56,13 +56,14 @@ _evts = data.query(
 )
 intensity = defaultdict(lambda: defaultdict(int))
 if not _evts.empty:
-    _now = _dt.datetime.now()
-    _ts  = _pd.to_datetime(_evts["detected_at"], errors="coerce")
-    # 96 cells across 7 days = 1.75-hour buckets
-    _bucket = ((_now - _ts).dt.total_seconds() / (1.75 * 3600)).astype("Int64")
-    for sev, b in zip(_evts["severity"], _bucket):
-        if _pd.notna(b) and 0 <= int(b) < 96:
-            intensity[sev][95 - int(b)] += 1
+    _now  = _dt.datetime.now()
+    _ts   = _pd.to_datetime(_evts["detected_at"], errors="coerce")
+    _mask = _ts.notna()
+    if _mask.any():
+        _bucket = ((_now - _ts[_mask]).dt.total_seconds() / (1.75 * 3600)).astype(int)
+        for sev, b in zip(_evts.loc[_mask, "severity"], _bucket):
+            if 0 <= int(b) < 96:
+                intensity[sev][95 - int(b)] += 1
 
 severity_order = ["critical", "high", "medium", "low", "info"]
 sev_label_de = {"critical": "S5 · Kritisch", "high": "S4 · Hoch",
@@ -182,9 +183,11 @@ style.section_head("Verteilung nach Tageszeit")
 _hour_evts = data.query("SELECT severity, detected_at FROM event")
 grid = defaultdict(lambda: defaultdict(int))
 if not _hour_evts.empty:
-    _hours = _pd.to_datetime(_hour_evts["detected_at"], errors="coerce").dt.hour
-    for sev, h in zip(_hour_evts["severity"], _hours):
-        if _pd.notna(h):
+    _hts   = _pd.to_datetime(_hour_evts["detected_at"], errors="coerce")
+    _hmask = _hts.notna()
+    if _hmask.any():
+        _hours = _hts[_hmask].dt.hour.astype(int)
+        for sev, h in zip(_hour_evts.loc[_hmask, "severity"], _hours):
             grid[sev][int(h)] += 1
 mx = max(v for s in grid for v in grid[s].values()) if grid else 1
 hm_rows = []

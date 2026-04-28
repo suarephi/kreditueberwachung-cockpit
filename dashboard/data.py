@@ -129,7 +129,7 @@ def tranche_count_per_loan() -> pd.DataFrame:
 def tranche_type_mix() -> pd.DataFrame:
     return query("""
         SELECT tranche_type, COUNT(*) AS n_tranches,
-               ROUND(SUM(amount)/1e6, 1) AS total_mchf
+               ROUND(CAST(SUM(amount)/1e6 AS numeric), 1) AS total_mchf
           FROM tranche GROUP BY tranche_type
     """)
 
@@ -138,7 +138,7 @@ def tranche_type_mix() -> pd.DataFrame:
 def object_type_mix() -> pd.DataFrame:
     return query("""
         SELECT object_type, COUNT(*) AS n,
-               ROUND(AVG(living_area_sqm)) AS avg_area
+               ROUND(CAST(AVG(living_area_sqm) AS numeric)) AS avg_area
           FROM property GROUP BY object_type ORDER BY n DESC
     """)
 

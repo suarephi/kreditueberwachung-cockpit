@@ -231,7 +231,7 @@ with dist_cols[0]:
         f"""<div class="ku-cardhead" style="margin:8px 0 4px"><div>
           <div class="ku-cardtitle">Belehnung (LTV)</div>
           <div class="ku-cardsub">Verteilung über alle Kredite</div></div>
-          {style.chip(f"Median {data.query('SELECT ROUND(AVG(ltv_pct),1) AS m FROM loan').iloc[0]['m']}%")}
+          {style.chip(f"Median {float(data.query('SELECT AVG(ltv_pct) AS m FROM loan').iloc[0]['m']):.1f}%")}
         </div>""",
         unsafe_allow_html=True,
     )
@@ -314,10 +314,10 @@ with esc_col:
                e.loan_id, c.last_name, c.first_name, a.canton AS canton,
                l.current_outstanding, l.ltv_pct
           FROM event e
-          JOIN loan l ON l.loan_id = e.loan_id
-          JOIN client c ON c.client_id = e.client_id
-          JOIN property p USING(property_id)
-          JOIN address a ON a.address_id = p.address_id
+          JOIN loan l    ON l.loan_id     = e.loan_id
+          JOIN client c  ON c.client_id   = e.client_id
+          JOIN property p ON p.property_id = l.property_id
+          JOIN address a ON a.address_id  = p.address_id
          WHERE e.status IN ('open','in_progress','escalated')
            AND e.detected_at  >= :cutoff
            AND e.sla_due_date <= :two_days
@@ -394,7 +394,7 @@ with side_col:
     # Stress tiles
     scenarios = data.query("""
         SELECT s.scenario_id, s.name,
-               ROUND(SUM(m.stressed_expected_loss)/1e6, 1) AS el_mchf
+               ROUND(CAST(SUM(m.stressed_expected_loss)/1e6 AS numeric), 1) AS el_mchf
           FROM stress_scenario s
           JOIN stress_loan_metrics m USING(scenario_id)
          WHERE m.period = (SELECT MAX(period) FROM stress_loan_metrics WHERE scenario_id=s.scenario_id)

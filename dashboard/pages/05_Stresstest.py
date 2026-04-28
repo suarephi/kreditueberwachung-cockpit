@@ -92,9 +92,9 @@ with right:
 style.section_head("Szenarienvergleich · letzte Periode")
 comp = data.query("""
     SELECT s.scenario_id, s.name, s.severity,
-           ROUND(SUM(m.stressed_expected_loss)/1e6, 2) AS el_mchf,
-           ROUND(AVG(m.stressed_ltv), 1)               AS avg_stressed_ltv,
-           ROUND(AVG(m.stressed_dsti), 1)              AS avg_stressed_dsti,
+           ROUND(CAST(SUM(m.stressed_expected_loss)/1e6 AS numeric), 2) AS el_mchf,
+           ROUND(CAST(AVG(m.stressed_ltv)  AS numeric), 1) AS avg_stressed_ltv,
+           ROUND(CAST(AVG(m.stressed_dsti) AS numeric), 1) AS avg_stressed_dsti,
            SUM(m.covenant_breach_flag)                 AS n_breaches
       FROM stress_scenario s
       JOIN stress_loan_metrics m USING(scenario_id)
