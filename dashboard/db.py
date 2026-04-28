@@ -9,8 +9,9 @@ Streamlit `@st.cache_resource` keeps a single engine alive across reruns.
 """
 from __future__ import annotations
 import os
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy.pool import NullPool
 
 import streamlit as st
 
@@ -19,15 +20,13 @@ from kreditueberwachung_mock import config
 
 def _resolve_url() -> tuple[str, str]:
     """Return (sqlalchemy_url, dialect) — 'postgres' or 'sqlite'."""
-    # Highest priority: environment variable (used by migrate script).
     url = os.environ.get("DATABASE_URL")
     if not url:
         try:
-            url = st.secrets["database"]["url"]      # Streamlit Cloud secrets
+            url = st.secrets["database"]["url"]
         except Exception:
             url = None
     if url:
-        # Normalise legacy `postgres://` scheme to `postgresql+psycopg2://`.
         if url.startswith("postgres://"):
             url = "postgresql+psycopg2://" + url[len("postgres://"):]
         elif url.startswith("postgresql://"):
@@ -38,9 +37,20 @@ def _resolve_url() -> tuple[str, str]:
 
 @st.cache_resource(show_spinner=False)
 def engine() -> Engine:
-    url, _ = _resolve_url()
-    eng = create_engine(url, pool_pre_ping=True, future=True)
-    return eng
+    url, dial = _resolve_url()
+    if dial == "postgres":
+        # Use NullPool so we don't hold connections across HTTP requests:
+        # Supabase's PgBouncer in transaction-pool mode closes connections
+        # after each transaction, which fights with SQLAlchemy's QueuePool.
+        # NullPool simply opens + closes per query, letting PgBouncer pool
+        # for us.
+        return create_engine(
+            url,
+            poolclass=NullPool,
+            future=True,
+            connect_args={"connect_timeout": 15, "sslmode": "require"},
+        )
+    return create_engine(url, future=True)
 
 
 def dialect() -> str:
