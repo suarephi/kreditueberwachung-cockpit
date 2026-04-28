@@ -1,0 +1,18 @@
+id: combined_adverse
+name: "Combined adverse: -20% prices, +200bp rates, -5% income"
+severity: extreme
+source: internal
+horizon_quarters: 12
+start_period: "2025-Q2"
+seed: 1999
+narrative: "Stacked adverse scenario for capital adequacy stress."
+index_shock:
+  shape: frontload
+  cumulative_pct: -0.20
+rate_shock:
+  curve: flat
+  bp: {SARON_3M: 200, FIX_5Y: 200, FIX_10Y: 200}
+macro:
+  unemployment_pct: 5.0
+  gdp_yoy_pct: -1.5
+  income_shock_pct: -0.05

@@ -1,0 +1,23 @@
+id: regional_zh_zg_ge
+name: "Regional shock ZH/ZG/GE -20%"
+severity: moderate
+source: internal
+horizon_quarters: 12
+start_period: "2025-Q2"
+seed: 1500
+narrative: "Localized -20% correction in ZH/ZG/GE only; rest of CH unchanged."
+index_shock:
+  shape: linear
+  cumulative_pct: -0.20
+  by_region:
+    default: 0.0
+    ZH: 1.0
+    ZG: 1.0
+    GE: 1.0
+rate_shock:
+  curve: flat
+  bp: {SARON_3M: 0, FIX_5Y: 0, FIX_10Y: 0}
+macro:
+  unemployment_pct: 3.0
+  gdp_yoy_pct: 0.5
+  income_shock_pct: 0.0

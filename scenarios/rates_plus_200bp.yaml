@@ -1,0 +1,18 @@
+id: rates_plus_200bp
+name: "Rates +200bp parallel shift"
+severity: moderate
+source: internal
+horizon_quarters: 12
+start_period: "2025-Q2"
+seed: 1200
+narrative: "Pure rate shock: SARON +200 bp, fix +200 bp; no price decline."
+index_shock:
+  shape: linear
+  cumulative_pct: 0.0
+rate_shock:
+  curve: flat
+  bp: {SARON_3M: 200, FIX_5Y: 200, FIX_10Y: 200}
+macro:
+  unemployment_pct: 2.5
+  gdp_yoy_pct: 0.5
+  income_shock_pct: 0.0

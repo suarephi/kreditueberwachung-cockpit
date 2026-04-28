@@ -1,0 +1,18 @@
+id: gfc_2008_analogue
+name: "GFC 2008 analogue"
+severity: severe
+source: GFC2008
+horizon_quarters: 12
+start_period: "2025-Q2"
+seed: 1080
+narrative: "U-shaped -18% drop with mild rate uptick and 3% income shock."
+index_shock:
+  shape: u_shape
+  cumulative_pct: -0.18
+rate_shock:
+  curve: flat
+  bp: {SARON_3M: 50, FIX_5Y: 50, FIX_10Y: 50}
+macro:
+  unemployment_pct: 5.5
+  gdp_yoy_pct: -2.0
+  income_shock_pct: -0.03

@@ -1,0 +1,27 @@
+canton_code,bfs_nr,name_de,name_fr,name_it,language_main,language_share_de,language_share_fr,language_share_it,population_share,base_chf_per_sqm_efh,base_chf_per_sqm_etw,base_chf_per_sqm_mfh,location_score_macro
+ZH,1,Zürich,Zurich,Zurigo,de,0.95,0.02,0.02,0.175,11500,13000,9500,4.6
+BE,2,Bern,Berne,Berna,de,0.85,0.13,0.01,0.117,6500,7500,5500,3.6
+LU,3,Luzern,Lucerne,Lucerna,de,0.97,0.01,0.01,0.047,7000,8500,6000,3.9
+UR,4,Uri,Uri,Uri,de,0.97,0.01,0.01,0.005,5500,6500,4800,2.8
+SZ,5,Schwyz,Schwytz,Svitto,de,0.96,0.01,0.01,0.018,9500,10500,7800,4.0
+OW,6,Obwalden,Obwald,Obvaldo,de,0.96,0.01,0.01,0.005,7000,8000,6000,3.4
+NW,7,Nidwalden,Nidwald,Nidvaldo,de,0.97,0.01,0.01,0.005,9000,10000,7500,4.0
+GL,8,Glarus,Glaris,Glarona,de,0.94,0.01,0.02,0.005,5000,6000,4500,2.8
+ZG,9,Zug,Zoug,Zugo,de,0.91,0.02,0.02,0.015,12500,13500,10500,4.8
+FR,10,Freiburg,Fribourg,Friburgo,fr,0.27,0.68,0.02,0.036,6500,7500,5500,3.4
+SO,11,Solothurn,Soleure,Soletta,de,0.94,0.02,0.01,0.031,5500,6500,4800,3.2
+BS,12,Basel-Stadt,Bâle-Ville,Basilea Città,de,0.85,0.04,0.04,0.022,9500,11500,8500,4.4
+BL,13,Basel-Landschaft,Bâle-Campagne,Basilea Campagna,de,0.92,0.02,0.02,0.033,7500,9000,6500,3.8
+SH,14,Schaffhausen,Schaffhouse,Sciaffusa,de,0.90,0.01,0.02,0.009,5500,6500,4800,3.0
+AR,15,Appenzell A.Rh.,Appenzell Rh.-Ext.,Appenzello Esterno,de,0.95,0.01,0.01,0.006,5500,6500,4800,2.8
+AI,16,Appenzell I.Rh.,Appenzell Rh.-Int.,Appenzello Interno,de,0.97,0.00,0.00,0.002,5500,6500,4800,2.6
+SG,17,St. Gallen,Saint-Gall,San Gallo,de,0.91,0.01,0.03,0.058,6000,7500,5300,3.3
+GR,18,Graubünden,Grisons,Grigioni,de,0.74,0.01,0.13,0.023,7500,9000,6500,3.4
+AG,19,Aargau,Argovie,Argovia,de,0.91,0.02,0.02,0.078,6500,7500,5500,3.4
+TG,20,Thurgau,Thurgovie,Turgovia,de,0.91,0.01,0.02,0.032,6000,7000,5300,3.1
+TI,21,Tessin,Tessin,Ticino,it,0.10,0.02,0.83,0.040,7000,8500,6300,3.6
+VD,22,Waadt,Vaud,Vaud,fr,0.07,0.81,0.04,0.092,9000,11000,7500,4.2
+VS,23,Wallis,Valais,Vallese,fr,0.28,0.62,0.02,0.039,6000,7500,5300,3.4
+NE,24,Neuenburg,Neuchâtel,Neuchâtel,fr,0.08,0.83,0.02,0.020,5000,6000,4500,3.0
+GE,25,Genf,Genève,Ginevra,fr,0.04,0.81,0.04,0.057,11000,13500,9500,4.5
+JU,26,Jura,Jura,Giura,fr,0.05,0.86,0.02,0.008,4500,5500,4000,2.8

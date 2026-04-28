@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+output/
+output_demo/
+*.egg-info/
+
+# Streamlit secrets (real values — only the .example is committed)
+.streamlit/secrets.toml
+
+# Cloudflare tunnel certs / state
+.cloudflared/
+*.pem
+

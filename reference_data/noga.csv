@@ -1,0 +1,34 @@
+noga_code,industry_de,industry_fr,industry_it,sector,risk_class
+01,Landwirtschaft,Agriculture,Agricoltura,primary,medium
+10,Nahrungsmittelindustrie,Industrie alimentaire,Industria alimentare,secondary,low
+21,Pharma,Pharma,Farmaceutica,secondary,low
+26,Elektronik,Électronique,Elettronica,secondary,low
+27,Maschinenbau,Construction de machines,Costruzione di macchine,secondary,medium
+35,Energieversorgung,Énergie,Energia,secondary,low
+41,Hochbau,Construction,Edilizia,secondary,medium
+42,Tiefbau,Génie civil,Genio civile,secondary,medium
+43,Bauinstallation,Installation,Installazioni,secondary,medium
+46,Grosshandel,Commerce de gros,Commercio all'ingrosso,tertiary,medium
+47,Detailhandel,Commerce de détail,Commercio al dettaglio,tertiary,medium
+49,Landverkehr,Transport terrestre,Trasporto terrestre,tertiary,medium
+55,Beherbergung,Hébergement,Alloggio,tertiary,high
+56,Gastronomie,Restauration,Ristorazione,tertiary,high
+58,Verlag,Édition,Editoria,tertiary,medium
+62,Informatik,Informatique,Informatica,tertiary,low
+64,Banken,Banques,Banche,tertiary,low
+65,Versicherungen,Assurances,Assicurazioni,tertiary,low
+68,Immobilien,Immobilier,Immobiliare,tertiary,medium
+69,Recht/Treuhand,Droit/Fiduciaire,Diritto/Fiduciario,tertiary,low
+70,Beratung,Conseil,Consulenza,tertiary,low
+71,Architektur/Ingenieur,Architecture/Ingénierie,Architettura/Ingegneria,tertiary,low
+72,Forschung,Recherche,Ricerca,tertiary,low
+73,Werbung,Publicité,Pubblicità,tertiary,medium
+74,Sonstige Dienstleistungen,Services divers,Servizi diversi,tertiary,medium
+84,Öffentliche Verwaltung,Administration publique,Amministrazione pubblica,public,low
+85,Bildung,Enseignement,Istruzione,public,low
+86,Gesundheitswesen,Santé,Sanità,public,low
+87,Heime/Pflege,Soins/Hébergement,Cure/Alloggio,public,low
+88,Soziale Dienste,Services sociaux,Servizi sociali,public,low
+90,Kunst/Kultur,Arts/Culture,Arti/Cultura,tertiary,high
+93,Sport/Unterhaltung,Sport/Loisirs,Sport/Tempo libero,tertiary,high
+99,Sonstige,Autres,Altro,tertiary,medium

@@ -1,0 +1,119 @@
+postal_code,city,canton_code,bfs_gemeinde_nr,gemeinde_name,urbanity,ms_region,location_score_micro
+8001,Zürich,ZH,261,Zürich,urban,Zürich,5.0
+8002,Zürich,ZH,261,Zürich,urban,Zürich,4.9
+8003,Zürich,ZH,261,Zürich,urban,Zürich,4.6
+8004,Zürich,ZH,261,Zürich,urban,Zürich,4.4
+8005,Zürich,ZH,261,Zürich,urban,Zürich,4.5
+8032,Zürich,ZH,261,Zürich,urban,Zürich,4.8
+8044,Zürich,ZH,261,Zürich,urban,Zürich,4.9
+8050,Zürich,ZH,261,Zürich,urban,Zürich,4.0
+8400,Winterthur,ZH,230,Winterthur,urban,Winterthur,3.7
+8610,Uster,ZH,198,Uster,suburban,Zürich,3.8
+8702,Zollikon,ZH,161,Zollikon,suburban,Zürich,4.6
+8703,Erlenbach ZH,ZH,151,Erlenbach (ZH),suburban,Zürich,4.7
+8810,Horgen,ZH,295,Horgen,suburban,Zürich,3.9
+8820,Wädenswil,ZH,293,Wädenswil,suburban,Zürich,3.8
+8902,Urdorf,ZH,247,Urdorf,suburban,Zürich,3.6
+8910,Affoltern am Albis,ZH,1,Affoltern am Albis,suburban,Zürich,3.5
+8302,Kloten,ZH,62,Kloten,suburban,Zürich,3.4
+3001,Bern,BE,351,Bern,urban,Bern,4.0
+3005,Bern,BE,351,Bern,urban,Bern,4.2
+3007,Bern,BE,351,Bern,urban,Bern,4.0
+3013,Bern,BE,351,Bern,urban,Bern,3.6
+3027,Bern,BE,351,Bern,urban,Bern,3.5
+3400,Burgdorf,BE,404,Burgdorf,suburban,Emmental,3.0
+3600,Thun,BE,942,Thun,suburban,Thun,3.4
+3800,Interlaken,BE,581,Interlaken,rural,Oberland-Ost,3.1
+2502,Biel/Bienne,BE,371,Biel/Bienne,urban,Biel,3.0
+3072,Ostermundigen,BE,363,Ostermundigen,suburban,Bern,3.4
+3098,Köniz,BE,355,Köniz,suburban,Bern,3.6
+6000,Luzern,LU,1061,Luzern,urban,Luzern,4.1
+6003,Luzern,LU,1061,Luzern,urban,Luzern,4.2
+6004,Luzern,LU,1061,Luzern,urban,Luzern,4.0
+6005,Luzern,LU,1061,Luzern,urban,Luzern,3.9
+6010,Kriens,LU,1059,Kriens,suburban,Luzern,3.6
+6210,Sursee,LU,1103,Sursee,rural,Sursee,3.2
+6460,Altdorf UR,UR,1201,Altdorf,rural,Uri,2.8
+6430,Schwyz,SZ,1372,Schwyz,suburban,Innerschwyz,3.6
+6440,Brunnen,SZ,1364,Ingenbohl,suburban,Innerschwyz,3.6
+6402,Merlischachen,SZ,1369,Küssnacht,suburban,Innerschwyz,3.9
+8807,Freienbach,SZ,1311,Freienbach,suburban,Einsiedeln,4.3
+6060,Sarnen,OW,1407,Sarnen,rural,Sarneraatal,3.2
+6370,Stans,NW,1509,Stans,suburban,Nidwalden,3.8
+6390,Engelberg,OW,1404,Engelberg,rural,Sarneraatal,3.4
+8750,Glarus,GL,1632,Glarus,rural,Glarner Hinterland,2.8
+6300,Zug,ZG,1711,Zug,urban,Zug,4.8
+6330,Cham,ZG,1701,Cham,suburban,Zug,4.5
+6340,Baar,ZG,1701,Baar,suburban,Zug,4.7
+1700,Fribourg,FR,2196,Fribourg,urban,Sarine,3.4
+1630,Bulle,FR,2125,Bulle,suburban,Gruyère,3.0
+3186,Düdingen,FR,2293,Düdingen,suburban,Sense,3.2
+4500,Solothurn,SO,2601,Solothurn,urban,Solothurn,3.4
+4600,Olten,SO,2581,Olten,suburban,Olten,3.2
+2540,Grenchen,SO,2546,Grenchen,suburban,Grenchen,2.8
+4001,Basel,BS,2701,Basel,urban,Basel,4.5
+4051,Basel,BS,2701,Basel,urban,Basel,4.6
+4053,Basel,BS,2701,Basel,urban,Basel,4.4
+4123,Allschwil,BL,2762,Allschwil,suburban,Basel,3.9
+4133,Pratteln,BL,2829,Pratteln,suburban,Basel,3.4
+4153,Reinach BL,BL,2766,Reinach (BL),suburban,Basel,3.7
+4410,Liestal,BL,2829,Liestal,suburban,Basel,3.5
+8200,Schaffhausen,SH,2939,Schaffhausen,urban,Schaffhausen,3.2
+9100,Herisau,AR,3001,Herisau,suburban,Appenzell Ausserrhoden,2.9
+9410,Heiden,AR,3034,Heiden,rural,Appenzell Ausserrhoden,2.8
+9050,Appenzell,AI,3101,Appenzell,rural,Appenzell Innerrhoden,3.0
+9000,St. Gallen,SG,3203,St. Gallen,urban,St. Gallen,3.5
+9008,St. Gallen,SG,3203,St. Gallen,urban,St. Gallen,3.4
+9200,Gossau SG,SG,3443,Gossau (SG),suburban,St. Gallen,3.1
+9450,Altstätten,SG,3231,Altstätten,rural,Rheintal,2.9
+9500,Wil SG,SG,3427,Wil (SG),suburban,Wil,3.0
+8730,Uznach,SG,3340,Uznach,rural,Linthgebiet,3.0
+8645,Jona,SG,3340,Rapperswil-Jona,suburban,Linthgebiet,4.0
+8640,Rapperswil SG,SG,3340,Rapperswil-Jona,suburban,Linthgebiet,4.2
+7000,Chur,GR,3901,Chur,urban,Chur,3.4
+7270,Davos Platz,GR,3851,Davos,rural,Davos,4.0
+7500,St. Moritz,GR,3787,St. Moritz,rural,Oberengadin,4.6
+7050,Arosa,GR,3921,Arosa,rural,Mittelbünden,3.6
+5000,Aarau,AG,4001,Aarau,urban,Aarau,3.4
+5400,Baden,AG,4021,Baden,urban,Baden,3.8
+5430,Wettingen,AG,4030,Wettingen,suburban,Baden,3.5
+5600,Lenzburg,AG,4192,Lenzburg,suburban,Aarau,3.2
+5200,Brugg,AG,4096,Brugg,suburban,Brugg-Zurzach,3.0
+5610,Wohlen AG,AG,4082,Wohlen (AG),suburban,Freiamt,3.0
+8500,Frauenfeld,TG,4566,Frauenfeld,suburban,Frauenfeld,3.0
+8280,Kreuzlingen,TG,4671,Kreuzlingen,suburban,Kreuzlingen,3.3
+8590,Romanshorn,TG,4736,Romanshorn,rural,Oberthurgau,3.0
+6900,Lugano,TI,5192,Lugano,urban,Lugano,3.8
+6500,Bellinzona,TI,5002,Bellinzona,urban,Bellinzona,3.4
+6600,Locarno,TI,5113,Locarno,suburban,Locarno,3.6
+6850,Mendrisio,TI,5254,Mendrisio,suburban,Mendrisiotto,3.4
+6612,Ascona,TI,5105,Ascona,rural,Locarno,4.2
+1003,Lausanne,VD,5586,Lausanne,urban,Lausanne,4.4
+1004,Lausanne,VD,5586,Lausanne,urban,Lausanne,4.2
+1005,Lausanne,VD,5586,Lausanne,urban,Lausanne,4.6
+1006,Lausanne,VD,5586,Lausanne,urban,Lausanne,4.5
+1110,Morges,VD,5642,Morges,suburban,Morges,4.0
+1180,Rolle,VD,5652,Rolle,suburban,Nyon,4.0
+1260,Nyon,VD,5724,Nyon,suburban,Nyon,4.1
+1800,Vevey,VD,5890,Vevey,suburban,Riviera,4.2
+1820,Montreux,VD,5886,Montreux,suburban,Riviera,4.4
+1400,Yverdon-les-Bains,VD,5938,Yverdon-les-Bains,suburban,Yverdon,3.2
+1950,Sion,VS,6266,Sion,urban,Sion,3.4
+1920,Martigny,VS,6136,Martigny,suburban,Martigny,3.0
+3960,Sierre,VS,6248,Sierre,suburban,Sierre,3.2
+3920,Zermatt,VS,6300,Zermatt,rural,Visp,4.6
+3963,Crans-Montana,VS,6234,Crans-Montana,rural,Sierre,4.4
+1936,Verbier,VS,6135,Val de Bagnes,rural,Martigny,4.5
+2000,Neuchâtel,NE,6458,Neuchâtel,urban,Neuchâtel,3.2
+2300,La Chaux-de-Fonds,NE,6421,La Chaux-de-Fonds,urban,La Chaux-de-Fonds,2.8
+2400,Le Locle,NE,6436,Le Locle,suburban,La Chaux-de-Fonds,2.6
+1201,Genève,GE,6621,Genève,urban,Genève,4.7
+1202,Genève,GE,6621,Genève,urban,Genève,4.5
+1203,Genève,GE,6621,Genève,urban,Genève,4.4
+1206,Genève,GE,6621,Genève,urban,Genève,4.6
+1208,Genève,GE,6621,Genève,urban,Genève,4.6
+1213,Petit-Lancy,GE,6628,Lancy,suburban,Genève,4.0
+1227,Carouge GE,GE,6608,Carouge,suburban,Genève,4.3
+1290,Versoix,GE,6643,Versoix,suburban,Genève,4.4
+2800,Delémont,JU,6711,Delémont,suburban,Delémont,2.8
+2900,Porrentruy,JU,6800,Porrentruy,rural,Porrentruy,2.6

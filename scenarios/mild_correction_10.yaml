@@ -1,0 +1,18 @@
+id: mild_correction_10
+name: "Mild correction -10%"
+severity: mild
+source: internal
+horizon_quarters: 12
+start_period: "2025-Q2"
+seed: 1010
+narrative: "Linear -10% national price decline over 12 quarters."
+index_shock:
+  shape: linear
+  cumulative_pct: -0.10
+rate_shock:
+  curve: flat
+  bp: {SARON_3M: 0, FIX_5Y: 0, FIX_10Y: 0}
+macro:
+  unemployment_pct: 3.5
+  gdp_yoy_pct: 0.4
+  income_shock_pct: 0.0

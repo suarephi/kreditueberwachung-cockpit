@@ -1,0 +1,25 @@
+id: finma_adverse
+name: "FINMA adverse"
+severity: severe
+source: FINMA
+horizon_quarters: 12
+start_period: "2025-Q2"
+seed: 1777
+narrative: "FINMA-flavored adverse: object-tilted price drop with rate uptick."
+index_shock:
+  shape: frontload
+  cumulative_pct: -0.22
+  by_object_type:
+    EFH: 0.90
+    ETW: 1.00
+    MFH: 1.10
+    Ferienwohnung: 1.40
+    Gewerbe: 1.30
+    Bauland: 1.60
+rate_shock:
+  curve: flat
+  bp: {SARON_3M: 180, FIX_5Y: 180, FIX_10Y: 180}
+macro:
+  unemployment_pct: 5.8
+  gdp_yoy_pct: -1.5
+  income_shock_pct: -0.04
