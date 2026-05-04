@@ -81,6 +81,17 @@ def generate_loans(
     # Origination date: 0..15 years ago, biased recent.
     age_days = np.clip(rng.exponential(scale=365 * 5, size=n).astype(int), 30, 365 * 15)
     origination_dates = [today - dt.timedelta(days=int(d)) for d in age_days]
+    # Clamp: a mortgage cannot be older than the financed building. For Bauland (no
+    # building yet) the loan can be any age.
+    object_types = properties["object_type"].values
+    constr_years = properties["construction_year"].values
+    for i in range(n):
+        if object_types[i] == "Bauland":
+            continue
+        cy = int(constr_years[i])
+        earliest = dt.date(cy, 1, 1) + dt.timedelta(days=int(rng.integers(30, 180)))
+        if origination_dates[i] < earliest:
+            origination_dates[i] = earliest
 
     # Direct amort to date.
     annual_amort = np.array([
@@ -97,10 +108,11 @@ def generate_loans(
     pillar2_pledge = np.where(rng.random(n) < 0.07, rng.uniform(20_000, 150_000, n), 0.0)
 
     product_line = np.where(
-        properties["object_type"].values == "MFH", "renditeobjekt",
+        properties["object_type"].values == "Bauland", "baufinanzierung",
+        np.where(properties["object_type"].values == "MFH", "renditeobjekt",
         np.where(properties["object_type"].values == "Ferienwohnung", "ferienobjekt",
                  np.where(properties["construction_year"].values >= today.year - 2, "baufinanzierung",
-                          "eigenheim"))
+                          "eigenheim")))
     )
 
     loans = pd.DataFrame({

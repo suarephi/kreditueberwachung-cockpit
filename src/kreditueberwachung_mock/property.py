@@ -80,6 +80,21 @@ def generate_properties(loans_n: int, address_offset: int) -> tuple[pd.DataFrame
 
     geak  = rngmod.weighted_array(rng, GEAK_CLASSES, GEAK_W, loans_n)
     heat  = rngmod.weighted_array(rng, HEATING, HEATING_W, loans_n)
+    # Heating system installed/replaced: usually constr_year, but ~40% replaced once
+    # within typical 20-25y service life.
+    heat_year_replaced = np.clip(constr_year + rng.integers(15, 35, size=loans_n),
+                                 constr_year + 5, today.year)
+    heating_year = np.where(rng.random(loans_n) < 0.40, heat_year_replaced, constr_year)
+    # Commercial use: only meaningful for Gewerbe (30% owner_occupied, 60% third-party
+    # rented, 10% mixed). Other object types: NULL.
+    commercial_use = np.full(loans_n, None, dtype=object)
+    object_types_arr = np.asarray(object_types)
+    gewerbe_mask = object_types_arr == "Gewerbe"
+    if gewerbe_mask.any():
+        rgew = rng.random(int(gewerbe_mask.sum()))
+        commercial_use_gew = np.where(rgew < 0.30, "owner_occupied",
+                                       np.where(rgew < 0.90, "third_party_rented", "mixed"))
+        commercial_use[gewerbe_mask] = commercial_use_gew
 
     micro_loc = plz_rows["location_score_micro"].values \
                 + rng.normal(0, 0.25, loans_n)
@@ -134,8 +149,11 @@ def generate_properties(loans_n: int, address_offset: int) -> tuple[pd.DataFrame
         "floors_total":             floors_total,
         "floor_unit":               floor_unit,
         "heating_type":             heat,
+        "heating_year":             heating_year,
         "geak_class":               geak,
         "building_insurance_value": (living_area * np.where(np.isin(object_types, ["MFH"]), 4500, 3800)).round(0),
+        "annual_rental_income_chf": np.full(loans_n, np.nan),  # filled in pipeline post-valuation
+        "commercial_use":           commercial_use,
         "usage":                    usage,
         "micro_location_score":     micro_loc.round(2),
         "macro_location_score":     macro_loc.round(2),

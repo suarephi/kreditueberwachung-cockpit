@@ -191,8 +191,11 @@ CREATE TABLE property (
   floors_total             INTEGER,
   floor_unit               INTEGER,
   heating_type             TEXT,
+  heating_year             INTEGER,
   geak_class               TEXT,
   building_insurance_value DOUBLE PRECISION,
+  annual_rental_income_chf DOUBLE PRECISION,
+  commercial_use           TEXT,
   usage                    TEXT,
   micro_location_score     DOUBLE PRECISION,
   macro_location_score     DOUBLE PRECISION,
@@ -298,6 +301,7 @@ CREATE TABLE affordability_assessment (
   amortization_required    DOUBLE PRECISION NOT NULL DEFAULT 0,
   total_cost_yearly        DOUBLE PRECISION NOT NULL,
   household_income_used    DOUBLE PRECISION NOT NULL,
+  income_basis             TEXT,
   dsti_calculated          DOUBLE PRECISION NOT NULL,
   dsti_threshold           DOUBLE PRECISION NOT NULL DEFAULT 33.0,
   pass_fail                TEXT NOT NULL CHECK (pass_fail IN ('pass','fail','exception')),
@@ -341,6 +345,7 @@ CREATE TABLE event (
   assigned_to              TEXT,
   resolved_at              TEXT,
   sla_due_date             TEXT,
+  sla_basis                TEXT,
   linked_case_id           BIGINT
 );
 CREATE INDEX ix_event_loan       ON event(loan_id);

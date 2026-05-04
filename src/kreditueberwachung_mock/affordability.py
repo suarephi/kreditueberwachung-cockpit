@@ -76,6 +76,7 @@ def generate_affordability_and_risk(
     income_df: pd.DataFrame,
     households: pd.DataFrame,
     client_household: pd.DataFrame,
+    properties: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Return (affordability_df, risk_metrics_df, loans_df_with_dsti)."""
     rng = rngmod.child_rng("affordability")
@@ -89,6 +90,11 @@ def generate_affordability_and_risk(
                                                        "existing_debt_payments"]]
     members = client_household.groupby("household_id")["client_id"].apply(list).to_dict()
 
+    # Property lookup: object_type drives the cashflow basis.
+    prop_lookup = properties.set_index("property_id")[
+        ["object_type", "annual_rental_income_chf", "commercial_use"]
+    ].to_dict("index")
+
     rows_aff, rows_rm = [], []
     dsti_arr = np.zeros(len(loans))
     for i, row in enumerate(loans.itertuples(index=False)):
@@ -96,13 +102,39 @@ def generate_affordability_and_risk(
         if not member_ids:
             continue
         member_inc = inc_by_client.loc[member_ids].sum(axis=0)
-        gross_total = float(
+        household_income = float(
             member_inc["gross_salary"] + member_inc["bonus_avg_3y"] + member_inc["rental_income"]
             + member_inc["dividend_income"] + member_inc["pension_income"] + member_inc["other_income"]
             + member_inc["alimony_received"] - member_inc["alimony_paid"]
             - member_inc["existing_debt_payments"]
         )
-        gross_total = max(gross_total, 30_000.0)
+        # Cashflow basis depends on object type. For income-producing real estate the
+        # bank looks at property-level rents / business EBITDA, not the owner's salary.
+        prop = prop_lookup.get(int(row.property_id), {})
+        ot = prop.get("object_type")
+        prop_income = prop.get("annual_rental_income_chf")
+        if ot == "MFH":
+            # Net operating rent (after vacancy, opex ~10-15%).
+            base = float(prop_income) if prop_income else 0.0
+            opex = base * float(rng.uniform(0.10, 0.15))
+            gross_total = max(base - opex, 20_000.0)
+            income_basis = "Mietzinsen (MFH)"
+        elif ot == "Gewerbe":
+            base = float(prop_income) if prop_income else 0.0
+            cu = prop.get("commercial_use")
+            if cu == "owner_occupied":
+                # Cashflow = simulated company EBITDA; treat the figure already as
+                # post-opex (annual_rental_income_chf was sized with that intent in
+                # the post-valuation step).
+                gross_total = max(base, 20_000.0)
+                income_basis = "EBITDA Eigennutzer"
+            else:
+                opex = base * float(rng.uniform(0.10, 0.18))
+                gross_total = max(base - opex, 20_000.0)
+                income_basis = "Mietzinsen (Gewerbe)"
+        else:
+            gross_total = max(household_income, 30_000.0)
+            income_basis = "Lohnausweis Haushalt"
         market_value = float(valuations_initial.iloc[i]["market_value"])
 
         imputed_interest = row.original_amount * (config.IMPUTED_INTEREST_PCT / 100.0)
@@ -134,6 +166,7 @@ def generate_affordability_and_risk(
             "amortization_required": round(amort_required, 0),
             "total_cost_yearly":     round(total_cost, 0),
             "household_income_used": round(gross_total, 0),
+            "income_basis":          income_basis,
             "dsti_calculated":       round(dsti, 2),
             "dsti_threshold":        threshold,
             "pass_fail":             pf,

@@ -4,7 +4,8 @@ import contextlib
 import sqlite3
 import time
 import pandas as pd
-from . import config, reference, valuation
+import numpy as np
+from . import config, reference, valuation, rng as rngmod
 from . import people as people_mod
 from . import property as property_mod
 from . import loan as loan_mod
@@ -14,6 +15,56 @@ from . import cases as cases_mod
 from . import documents as docs_mod
 from . import audit as audit_mod
 from . import inconsistencies as inc_mod
+
+
+# Property fields that only make sense for buildings, never for raw land.
+BAULAND_NULL_COLS = (
+    "construction_year", "last_renovation_year", "living_area_sqm", "rooms",
+    "bathrooms", "heating_type", "heating_year", "geak_class",
+    "building_insurance_value",
+)
+
+
+def _fill_rental_income(properties: pd.DataFrame, val_initial: pd.DataFrame) -> None:
+    """Populate property.annual_rental_income_chf for income-producing real estate.
+
+    For Gewerbe/owner_occupied the figure stands in for an EBITDA proxy used by the
+    affordability cashflow basis (the bank looks at the company, not the salary).
+    """
+    rng = rngmod.child_rng("rental_income")
+    mv = val_initial.set_index("property_id")["market_value"]
+    out = np.full(len(properties), np.nan)
+    for i, row in enumerate(properties.itertuples(index=False)):
+        ot = row.object_type
+        m = float(mv.get(int(row.property_id), np.nan))
+        if not np.isfinite(m):
+            continue
+        if ot == "MFH":
+            yld = float(rng.uniform(0.040, 0.055))
+            vac = float(rng.uniform(0.02, 0.05))
+            out[i] = round(m * yld * (1 - vac), 0)
+        elif ot == "Gewerbe":
+            cu = getattr(row, "commercial_use", None)
+            if cu == "owner_occupied":
+                out[i] = round(m * float(rng.uniform(0.08, 0.15)), 0)
+            else:
+                yld = float(rng.uniform(0.050, 0.070))
+                vac = float(rng.uniform(0.05, 0.12))
+                out[i] = round(m * yld * (1 - vac), 0)
+    properties["annual_rental_income_chf"] = out
+
+
+def _null_bauland_fields(properties: pd.DataFrame) -> None:
+    """Erase building-only attributes for Bauland rows so the dossier doesn't pretend
+    a piece of land has rooms, heating, or a construction year."""
+    bauland_mask = properties["object_type"] == "Bauland"
+    if not bauland_mask.any():
+        return
+    for col in BAULAND_NULL_COLS:
+        if col not in properties.columns:
+            continue
+        properties[col] = properties[col].astype(object)
+        properties.loc[bauland_mask, col] = None
 
 
 SCHEMA_FILES = [
@@ -109,6 +160,9 @@ def run() -> None:
         valuations_all = pd.concat([val_initial, val_history], ignore_index=True)
         valuations_all["valuation_id"] = range(1, len(valuations_all) + 1)
 
+        with _step("rental_income_fill"):
+            _fill_rental_income(properties, val_initial)
+
         with _step("loans_and_tranches"):
             loans, tranches = loan_mod.generate_loans(clients_df, households, val_initial, properties)
 
@@ -116,7 +170,7 @@ def run() -> None:
             incomes = aff_mod.generate_incomes(clients_df)
         with _step("affordability_risk"):
             aff, rm, loans = aff_mod.generate_affordability_and_risk(
-                loans, val_initial, incomes, households, client_household
+                loans, val_initial, incomes, households, client_household, properties
             )
 
         with _step("events"):
@@ -129,6 +183,9 @@ def run() -> None:
             audit = audit_mod.generate_audit_log(clients_df)
 
         addresses_all = pd.concat([addr_clients, addr_property], ignore_index=True)
+
+        with _step("bauland_cleanup"):
+            _null_bauland_fields(properties)
 
         with _step("inconsistencies"):
             tables = {

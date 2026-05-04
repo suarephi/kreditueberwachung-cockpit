@@ -18,6 +18,7 @@ CREATE TABLE event (
   assigned_to              TEXT,
   resolved_at              TEXT,
   sla_due_date             TEXT,
+  sla_basis                TEXT,
   linked_case_id           INTEGER
 );
 CREATE INDEX ix_event_loan       ON event(loan_id);

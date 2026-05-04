@@ -89,6 +89,7 @@ CREATE TABLE affordability_assessment (
   amortization_required    REAL NOT NULL DEFAULT 0,
   total_cost_yearly        REAL NOT NULL,
   household_income_used    REAL NOT NULL,
+  income_basis             TEXT,
   dsti_calculated          REAL NOT NULL,
   dsti_threshold           REAL NOT NULL DEFAULT 33.0,
   pass_fail                TEXT NOT NULL CHECK (pass_fail IN ('pass','fail','exception')),
