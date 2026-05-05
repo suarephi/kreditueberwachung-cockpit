@@ -681,10 +681,11 @@ def build(out_path: Path) -> None:
 
     flow.append(Paragraph("8.4 Deployment-Status", H2))
     for b in bullets([
-        f"<b>Branch:</b> feedback-erich-2026-05 (5 Commits, lokal, nicht gepusht).",
-        f"<b>Lokaler Datensatz:</b> output_demo regeneriert, 347 MB SQLite mit allen neuen Tabellen.",
-        f"<b>Supabase-Migration:</b> aktuell laufend / abgeschlossen (siehe separate Session-Notiz).",
-        f"<b>Streamlit-Cloud-Deployment:</b> erfolgt automatisch nach Push des Branches.",
+        "<b>GitHub:</b> Branch feedback-erich-2026-05 nach main gemerged und gepusht (Fast-Forward, 6 Commits, kein PR).",
+        "<b>Lokaler Datensatz:</b> output_demo neu generiert, 358 MB SQLite, 10'000 Kunden, 9'500 Kredite, alle neuen Tabellen befüllt.",
+        "<b>Supabase Postgres:</b> Migration via COPY FROM STDIN (statt multi-INSERT) erfolgreich durchgelaufen, 27 Tabellen, ~2.6 Mio Rows in rund drei Minuten, kein Retry nötig.",
+        "<b>Streamlit Cloud:</b> baut nach Merge automatisch neu, neue Pages '09 Wertschriften' und '10 Konten' sowie alle UX-Updates live.",
+        "<b>Verifizierung in Supabase:</b> 0 Bauland-Properties mit Heizung, alle 126'467 Events tragen sla_basis, account_tx mit 414'152 Zeilen, 5 Strategien im Mix 35/25/20/14/8 Prozent, income_basis sauber verteilt (Lohnausweis 8'304, MFH 767, Gewerbe 299, EBITDA 130).",
     ]): flow.append(b)
 
     doc.build(flow)
