@@ -11,7 +11,7 @@ import streamlit as st          # noqa: E402
 import plotly.express as px     # noqa: E402
 import pandas as pd             # noqa: E402
 
-from dashboard import data, style    # noqa: E402
+from dashboard import data, style, i18n    # noqa: E402
 
 st.set_page_config(page_title="Konten", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -19,9 +19,10 @@ style.apply_style()
 style.require_password()
 style.topnav("Konten")
 
-style.page_head("Konten",
-                "Bewegungsanalyse",
-                "Lohnzahlungen, Daueraufträge, materielle Veränderungen über die letzten 24 Monate.")
+LANG = i18n.current_lang()
+style.page_head(i18n.t("ph_accounts_crumb"),
+                i18n.t("ph_accounts_title"),
+                i18n.t("ph_accounts_sub"))
 
 # Probe
 try:
@@ -30,8 +31,11 @@ except Exception:
     n_acc = 0
 
 if n_acc == 0:
-    st.info("Keine Konten/Transaktionen im Datensatz. "
-            "Lokal regenerieren: `KU_TX_FRAC=0.30 python scripts/generate.py`.")
+    st.info(("Keine Konten/Transaktionen im Datensatz. "
+             "Lokal regenerieren: `KU_TX_FRAC=0.30 python scripts/generate.py`.")
+            if LANG == "de" else
+            ("No accounts/transactions in the dataset. "
+             "Regenerate locally: `KU_TX_FRAC=0.30 python scripts/generate.py`."))
     style.footer()
     st.stop()
 
@@ -57,17 +61,16 @@ salary_kpi = data.query("""
 total_bal_n, total_bal_u = style.fmt_compact(float(kpi["total_balance"] or 0))
 avg_bal_n,   avg_bal_u   = style.fmt_compact(float(kpi["avg_balance"] or 0))
 style.kpi_strip([
-    {"label": "Konten",                  "value": style.fmt_int(int(kpi["n_acc"] or 0))},
-    {"label": "Saldo gesamt",            "value": total_bal_n, "unit": total_bal_u},
-    {"label": "Ø Saldo / Konto",         "value": avg_bal_n,   "unit": avg_bal_u},
-    {"label": "Lohnkunden (12 Mt)",      "value": style.fmt_int(int(salary_kpi["n_clients"] or 0))},
-    {"label": "Ø monatlicher Lohn",
+    {"label": i18n.t("acc_kpi_count"),         "value": style.fmt_int(int(kpi["n_acc"] or 0))},
+    {"label": i18n.t("acc_kpi_total_balance"), "value": total_bal_n, "unit": total_bal_u},
+    {"label": i18n.t("acc_kpi_avg_balance"),   "value": avg_bal_n,   "unit": avg_bal_u},
+    {"label": i18n.t("acc_kpi_salary_clients"),"value": style.fmt_int(int(salary_kpi["n_clients"] or 0))},
+    {"label": i18n.t("acc_kpi_avg_salary"),
      "value": style.fmt_chf(float(salary_kpi["avg_monthly"] or 0)).replace(' CHF',''),
      "unit":  "CHF"},
 ])
 
-# ---------- Konsistenz Lohnzahlung ↔ Lohnausweis ----------
-style.section_head("Konsistenz · Lohnzahlung vs. Lohnausweis")
+style.section_head(i18n.t("acc_section_consistency"))
 consistency = data.query("""
     SELECT i.client_id,
            c.first_name, c.last_name, c.segment,
@@ -84,22 +87,33 @@ consistency = data.query("""
      GROUP BY i.client_id, c.first_name, c.last_name, c.segment, i.gross_salary
 """, {"cutoff": _cutoff_12m})
 consistency["status"] = consistency["deviation_pct"].abs().apply(
-    lambda d: "🟢 ±5%" if d < 5 else ("🟡 5–15%" if d < 15 else "🔴 >15%"))
+    lambda d: i18n.t("ampel_green") if d < 5
+              else (i18n.t("ampel_yellow") if d < 15 else i18n.t("ampel_red")))
 
 flag_counts = consistency["status"].value_counts()
 cols = st.columns(3)
 for i, (label, count) in enumerate(flag_counts.items()):
     cols[i % 3].metric(label, int(count))
 
-st.dataframe(consistency.rename(columns={
-    "client_id": "Kunden-ID", "first_name": "Vorname", "last_name": "Nachname",
-    "segment": "Segment", "gross_salary": "Lohnausweis (CHF/J)",
-    "implied_annual": "Konto-impliziert", "deviation_pct": "Δ %", "status": "Flag",
-}).sort_values("Δ %", key=lambda s: s.abs(), ascending=False),
+if LANG == "de":
+    rename_map = {
+        "client_id": "Kunden-ID", "first_name": "Vorname", "last_name": "Nachname",
+        "segment": "Segment", "gross_salary": "Lohnausweis (CHF/J)",
+        "implied_annual": "Konto-impliziert", "deviation_pct": "Δ %", "status": "Flag",
+    }
+    delta_col = "Δ %"
+else:
+    rename_map = {
+        "client_id": "Client ID", "first_name": "First Name", "last_name": "Last Name",
+        "segment": "Segment", "gross_salary": "Payslip (CHF/y)",
+        "implied_annual": "Account-implied", "deviation_pct": "Δ %", "status": "Flag",
+    }
+    delta_col = "Δ %"
+st.dataframe(consistency.rename(columns=rename_map)
+             .sort_values(delta_col, key=lambda s: s.abs(), ascending=False),
 hide_index=True, use_container_width=True, height=320)
 
-# ---------- Verdächtige Veränderungen ----------
-style.section_head("Materielle Veränderungen · einmalige Grosseingänge/-ausgänge")
+style.section_head(i18n.t("acc_section_changes"))
 changes = data.query("""
     SELECT a.client_id, c.first_name, c.last_name,
            at.tx_date, at.category, at.amount_chf,
@@ -112,19 +126,15 @@ changes = data.query("""
      ORDER BY ABS(at.amount_chf) DESC LIMIT 100
 """)
 if not changes.empty:
-    st.dataframe(changes.rename(columns={
-        "client_id": "Kunden-ID", "first_name": "Vorname", "last_name": "Nachname",
-        "tx_date": "Datum", "category": "Kategorie", "amount_chf": "Betrag (CHF)",
-        "counterparty": "Gegenpartei", "description": "Beschreibung",
-    }).style.format({"Betrag (CHF)": "{:+,.0f}"}),
-    hide_index=True, use_container_width=True, height=320)
+    amt_col = i18n.col("amount_chf", "account_tx", LANG)
+    st.dataframe(i18n.rename(changes, "account_tx").style.format({amt_col: "{:+,.0f}"}),
+                 hide_index=True, use_container_width=True, height=320)
 else:
-    st.info("Keine ausserordentlichen Bewegungen im Datensatz.")
+    st.info("Keine ausserordentlichen Bewegungen im Datensatz."
+            if LANG == "de" else "No exceptional movements in the dataset.")
 
-# ---------- Drill-down: Konto wählen, Tx anzeigen ----------
-# ---------- Tragbarkeit-Alerts aus Bewegungen ----------
-style.section_head("Tragbarkeit-Alerts aus Bewegungen",
-                   count="auto-erkannt aus Lohn- und Kontotransaktionen")
+style.section_head(i18n.t("acc_section_alerts"),
+                   count=i18n.t("acc_section_alerts_sub"))
 auth_suffix = f"&k={style.auth_token()}" if style.auth_token() else ""
 alerts = data.query("""
     SELECT e.event_id, e.event_type, e.severity, e.detected_at, e.sla_due_date,
@@ -146,7 +156,8 @@ alerts = data.query("""
      ORDER BY e.detected_at DESC
 """)
 if alerts.empty:
-    st.info("Keine Tragbarkeits-Alerts aus Bewegungen im Datensatz.")
+    st.info("Keine Tragbarkeits-Alerts aus Bewegungen im Datensatz."
+            if LANG == "de" else "No affordability alerts from movements in the dataset.")
 else:
     counts = alerts["event_type"].value_counts()
     cols = st.columns(min(5, len(counts)))
@@ -178,20 +189,27 @@ else:
   <td style="text-align:right">{dsti_html}</td>
   <td style="text-align:right">{income_html}</td>
   <td>{pf_html}</td>
-  <td><a href="{loan_url}" target="_self" style="color:var(--ink-3);font-size:12.5px;text-decoration:none">Öffnen →</a></td>
+  <td><a href="{loan_url}" target="_self" style="color:var(--ink-3);font-size:12.5px;text-decoration:none">{i18n.t('open_link')}</a></td>
 </tr>""")
+    th_loan_client = i18n.t("tbl_th_loan_client")
+    th_trigger = "Auslöser" if LANG == "de" else "Trigger"
+    th_severity = "Severity"
+    th_detected = "Erkannt" if LANG == "de" else "Detected"
+    th_dsti = "DSTI neu" if LANG == "de" else "New DSTI"
+    th_income = "Einkommen neu" if LANG == "de" else "New income"
+    th_pf = "Tragbarkeit" if LANG == "de" else "Affordability"
     st.markdown(f"""
 <div class="ku-card ku-card-flush" style="margin-top:8px">
   <table style="width:100%;border-collapse:collapse">
     <thead>
       <tr>
-        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Kredit / Kunde</th>
-        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Auslöser</th>
-        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Severity</th>
-        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Erkannt</th>
-        <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">DSTI neu</th>
-        <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Einkommen neu</th>
-        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Tragbarkeit</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">{th_loan_client}</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">{th_trigger}</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">{th_severity}</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">{th_detected}</th>
+        <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">{th_dsti}</th>
+        <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">{th_income}</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">{th_pf}</th>
         <th></th>
       </tr>
     </thead>
@@ -200,7 +218,7 @@ else:
 </div>
 """, unsafe_allow_html=True)
 
-style.section_head("Drill-down · Transaktionshistorie")
+style.section_head(i18n.t("acc_section_drill"))
 top_acc = data.query("""
     SELECT a.account_id, c.first_name, c.last_name, a.account_type,
            a.iban, a.current_balance_chf
@@ -212,10 +230,10 @@ acc_label = {int(r["account_id"]):
              f"#{int(r['account_id']):05d} · {r['first_name']} {r['last_name']} · "
              f"{r['account_type']} · {r['iban']} · CHF {r['current_balance_chf']:,.0f}"
              for _, r in top_acc.iterrows()}
-sel = st.selectbox("Konto wählen", [0] + acc_options,
-                    format_func=lambda i: ("Bitte wählen" if i == 0 else acc_label[i]))
+sel = st.selectbox(i18n.t("acc_select_account"), [0] + acc_options,
+                    format_func=lambda i: (i18n.t("sec_pick") if i == 0 else acc_label[i]))
 if sel:
-    cat_filter = st.multiselect("Kategorien filtern (leer = alle)", [
+    cat_filter = st.multiselect(i18n.t("acc_filter_categories"), [
         "salary", "mortgage_payment", "rental_income", "standing_order",
         "card_purchase", "withdrawal", "tax", "3a_contribution",
         "transfer_in", "transfer_out", "third_pillar_payout",
@@ -232,12 +250,9 @@ if sel:
           FROM account_tx WHERE {where}
          ORDER BY tx_date DESC LIMIT 500
     """, params)
-    st.caption(f"Letzte 500 Buchungen · {len(txs)} angezeigt")
-    st.dataframe(txs.rename(columns={
-        "tx_date": "Datum", "amount_chf": "Betrag (CHF)",
-        "category": "Kategorie", "counterparty": "Gegenpartei",
-        "description": "Beschreibung",
-    }).style.format({"Betrag (CHF)": "{:+,.2f}"}),
-    hide_index=True, use_container_width=True, height=420)
+    st.caption(i18n.t("acc_caption_recent").format(n=len(txs)))
+    amt_col = i18n.col("amount_chf", "account_tx", LANG)
+    st.dataframe(i18n.rename(txs, "account_tx").style.format({amt_col: "{:+,.2f}"}),
+                 hide_index=True, use_container_width=True, height=420)
 
 style.footer()

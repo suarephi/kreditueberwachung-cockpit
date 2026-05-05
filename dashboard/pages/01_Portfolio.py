@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 import streamlit as st             # noqa: E402
 import plotly.express as px        # noqa: E402
 
-from dashboard import data, charts, coords, style    # noqa: E402
+from dashboard import data, charts, coords, style, i18n    # noqa: E402
 
 st.set_page_config(page_title="Portfolio", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -18,25 +18,32 @@ style.apply_style()
 style.require_password()
 style.topnav("Übersicht")  # Portfolio is reached from nav cards on Übersicht
 
-style.page_head("Portfolio",
-                "Hypothekenbestand im Detail",
-                "Schweiz-Heatmap, Rangliste und Verteilungen über das gesamte Hypothekarbuch.")
+LANG = i18n.current_lang()
+style.page_head(i18n.t("ph_portfolio_crumb"),
+                i18n.t("ph_portfolio_title"),
+                i18n.t("ph_portfolio_sub"))
 
 # ---------- KPI strip ----------
 kpis = data.portfolio_kpis()
 vol_n, vol_unit = style.fmt_compact(kpis["total_outstanding"])
 el_n,  el_unit  = style.fmt_compact(kpis.get("total_el") or 0)
 
+if LANG == "de":
+    kpi_labels = ("Aktive Kredite", "Gesamtengagement", "Ø Belehnung",
+                  "Belehnung > 80 %", "Tragbarkeit > 33 %")
+else:
+    kpi_labels = ("Active Loans", "Total Exposure", "Avg. LTV",
+                  "LTV > 80 %", "DSTI > 33 %")
 style.kpi_strip([
-    {"label": "Aktive Kredite",        "value": style.fmt_int(kpis["n_loans"])},
-    {"label": "Gesamtengagement",      "value": vol_n, "unit": vol_unit},
-    {"label": "Ø Belehnung",           "value": f"{kpis['avg_ltv']:.1f}", "unit": "%"},
-    {"label": "Belehnung > 80 %",      "value": f"{kpis['share_ltv_gt80']*100:.1f}", "unit": "%"},
-    {"label": "Tragbarkeit > 33 %",    "value": f"{kpis['share_dsti_gt33']*100:.1f}", "unit": "%"},
+    {"label": kpi_labels[0], "value": style.fmt_int(kpis["n_loans"])},
+    {"label": kpi_labels[1], "value": vol_n, "unit": vol_unit},
+    {"label": kpi_labels[2], "value": f"{kpis['avg_ltv']:.1f}", "unit": "%"},
+    {"label": kpi_labels[3], "value": f"{kpis['share_ltv_gt80']*100:.1f}", "unit": "%"},
+    {"label": kpi_labels[4], "value": f"{kpis['share_dsti_gt33']*100:.1f}", "unit": "%"},
 ])
 
-# ---------- Heatmap ----------
-style.section_head("Schweiz-Heatmap", count="26 Kantone · live")
+style.section_head("Schweiz-Heatmap" if LANG == "de" else "Switzerland heatmap",
+                   count=("26 Kantone · live" if LANG == "de" else "26 cantons · live"))
 
 per_canton = data.per_canton_metrics()
 per_canton = per_canton[per_canton["canton_code"].notna()].copy()
@@ -81,8 +88,8 @@ if not per_canton.empty:
         )
     st.plotly_chart(fig, use_container_width=True)
 
-# ---------- Rangliste + Distributions ----------
-style.section_head("Rangliste & Verteilungen")
+style.section_head("Rangliste & Verteilungen" if LANG == "de"
+                   else "Ranking & distributions")
 
 left, right = st.columns([3, 2], gap="medium")
 
@@ -140,34 +147,36 @@ with right:
 # ---------------------------------------------------------------------------
 # Drill-down: Top-Kredite je Kanton oder Objekttyp
 # ---------------------------------------------------------------------------
-style.section_head("Drill-down · Kredite je Kanton oder Objekttyp")
+style.section_head(i18n.t("dd_loans_canton"))
 dd_left, dd_right = st.columns(2, gap="medium")
 
 with dd_left:
     canton_options = sorted(per_canton["canton_code"].dropna().unique().tolist())
-    sel_canton = st.selectbox("Kanton", [""] + canton_options, key="dd_canton")
+    sel_canton = st.selectbox(i18n.t("dd_pick_canton"), [""] + canton_options, key="dd_canton")
     if sel_canton:
         df = data.loans_by_canton(sel_canton, limit=50)
-        st.caption(f"Top 50 Kredite in **{sel_canton}** nach Saldo")
-        st.dataframe(df.rename(columns={
-            "loan_id": "Kredit-ID", "client_id": "Kunden-ID",
-            "first_name": "Vorname", "last_name": "Nachname",
-            "object_type": "Objekt", "current_outstanding": "Saldo",
-            "ltv_pct": "LTV", "dsti_pct": "DSTI", "expected_loss": "EV",
+        st.caption((f"Top 50 Kredite in **{sel_canton}** nach Saldo" if LANG == "de"
+                    else f"Top 50 loans in **{sel_canton}** by balance"))
+        st.dataframe(i18n.rename(df, "loan").rename(columns={
+            "expected_loss": i18n.col("expected_loss", "risk_metrics", LANG),
+            "first_name": i18n.col("first_name", "client", LANG),
+            "last_name": i18n.col("last_name", "client", LANG),
+            "object_type": i18n.col("object_type", "property", LANG),
         }), hide_index=True, use_container_width=True, height=380)
 
 with dd_right:
     obj_options = data.object_type_mix()["object_type"].tolist()
-    sel_obj = st.selectbox("Objekttyp", [""] + obj_options, key="dd_obj")
+    sel_obj = st.selectbox(i18n.t("dd_pick_obj"), [""] + obj_options, key="dd_obj")
     if sel_obj:
         df = data.loans_by_object_type(sel_obj, limit=50)
-        st.caption(f"Top 50 Kredite mit Objekttyp **{sel_obj}** nach Saldo")
-        st.dataframe(df.rename(columns={
-            "loan_id": "Kredit-ID", "client_id": "Kunden-ID",
-            "first_name": "Vorname", "last_name": "Nachname",
-            "canton": "Kanton", "city": "Ort",
-            "current_outstanding": "Saldo",
-            "ltv_pct": "LTV", "dsti_pct": "DSTI", "expected_loss": "EV",
+        st.caption((f"Top 50 Kredite mit Objekttyp **{sel_obj}** nach Saldo" if LANG == "de"
+                    else f"Top 50 loans of object type **{sel_obj}** by balance"))
+        st.dataframe(i18n.rename(df, "loan").rename(columns={
+            "expected_loss": i18n.col("expected_loss", "risk_metrics", LANG),
+            "first_name": i18n.col("first_name", "client", LANG),
+            "last_name": i18n.col("last_name", "client", LANG),
+            "canton": i18n.col("canton", "address", LANG),
+            "city": i18n.col("city", "address", LANG),
         }), hide_index=True, use_container_width=True, height=380)
 
 style.footer()

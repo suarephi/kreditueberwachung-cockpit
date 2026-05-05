@@ -61,17 +61,18 @@ SEVERITY_COLORS = {
 # ---------------------------------------------------------------------------
 # Top nav routing — order from handoff
 # ---------------------------------------------------------------------------
+# (de_label, href, i18n_key) — de_label is also the `active` value the page passes in.
 NAV_ITEMS = [
-    ("Übersicht",     "/"),
-    ("Überwachung",   "/Überwachung"),
-    ("Risikofälle",   "/Risikofälle"),
-    ("Kreditdossier", "/Kreditdossier"),
-    ("Wertschriften", "/Wertschriften"),
-    ("Konten",        "/Konten"),
-    ("Stresstest",    "/Stresstest"),
-    ("Datenqualität", "/Datenqualität"),
-    ("Datenprofil",   "/Datenprofil"),
-    ("Downloads",     "/Downloads"),
+    ("Übersicht",     "/",              "nav_overview"),
+    ("Überwachung",   "/Überwachung",   "nav_monitoring"),
+    ("Risikofälle",   "/Risikofälle",   "nav_risk_cases"),
+    ("Kreditdossier", "/Kreditdossier", "nav_dossier"),
+    ("Wertschriften", "/Wertschriften", "nav_securities"),
+    ("Konten",        "/Konten",        "nav_accounts"),
+    ("Stresstest",    "/Stresstest",    "nav_stress"),
+    ("Datenqualität", "/Datenqualität", "nav_data_quality"),
+    ("Datenprofil",   "/Datenprofil",   "nav_data_profile"),
+    ("Downloads",     "/Downloads",     "nav_downloads"),
 ]
 
 
@@ -619,10 +620,11 @@ def topnav(active: str = "Übersicht") -> None:
     suffix = "?" + "&".join(qp_parts)
 
     links = []
-    for label, href in NAV_ITEMS:
-        cls = "active" if label == active else ""
+    for de_label, href, key in NAV_ITEMS:
+        cls = "active" if de_label == active else ""
         url = "/" if href == "/" else "/" + quote(href.lstrip("/"))
-        links.append(f'<a class="{cls}" href="{url}{suffix}" target="_self">{label}</a>')
+        display = i18n.t(key)
+        links.append(f'<a class="{cls}" href="{url}{suffix}" target="_self">{display}</a>')
 
     # Lang toggle: build a URL that flips ?lang= but preserves k= and the page.
     other_lang = "en" if lang == "de" else "de"
@@ -631,7 +633,7 @@ def topnav(active: str = "Übersicht") -> None:
         toggle_qp.append(f"k={auth_token()}")
     toggle_qp.append(f"lang={other_lang}")
     # Re-use NAV_ITEMS to get the current page's href — no manual encoding.
-    here_href = next((h for lbl, h in NAV_ITEMS if lbl == active), "/")
+    here_href = next((h for lbl, h, _k in NAV_ITEMS if lbl == active), "/")
     here_path = "/" if here_href == "/" else "/" + quote(here_href.lstrip("/"))
     toggle_url = f"{here_path}?{'&'.join(toggle_qp)}"
     lang_html = (
@@ -642,8 +644,7 @@ def topnav(active: str = "Übersicht") -> None:
         '</div>'
     )
 
-    search_placeholder = ("Kunde, Kreditnummer, Objekt …" if lang == "de"
-                          else "Client, loan ID, object …")
+    search_placeholder = i18n.t("search_placeholder")
     html = (
         '<div class="ku-topbar"><div class="ku-topbar-inner">'
         '<div class="ku-brand"><div class="ku-brand-mark">K</div>'
@@ -707,11 +708,11 @@ def tag_canton(code: str) -> str:
 
 
 def footer() -> None:
+    from . import i18n
     html = (
         '<div class="ku-footer">'
-        '<span>Kreditüberwachung Cockpit · Pipeline V12.4 · '
-        'Bewertung Fahrländer V4.2 · GeoJSON CH 2024</span>'
-        '<span>© Treasury &amp; Risk · vertraulich · v0.9.1</span>'
+        f'<span>{i18n.t("footer_left")}</span>'
+        f'<span>{i18n.t("footer_right").replace("&", "&amp;")}</span>'
         '</div>'
     )
     st.markdown(html, unsafe_allow_html=True)

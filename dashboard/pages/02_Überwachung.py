@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 import streamlit as st        # noqa: E402
 
-from dashboard import data, charts, style    # noqa: E402
+from dashboard import data, charts, style, i18n    # noqa: E402
 
 st.set_page_config(page_title="Überwachung", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -24,29 +24,42 @@ sev_map = dict(zip(sev_df["severity"], sev_df["n"]))
 n_total = int(sum(sev_map.values()))
 n_red   = int(sev_map.get("critical", 0)) + int(sev_map.get("high", 0))
 
+LANG = i18n.current_lang()
 style.page_head(
-    crumb="Überwachung",
-    title="Ereignisstrom & SLA",
-    subtitle=(f"{style.fmt_int(n_total)} offene Ereignisse "
-              f"· {style.fmt_int(n_red)} kritisch oder hoch "
-              f"· Pipeline V12.4."),
+    crumb=i18n.t("ph_monitoring_crumb"),
+    title=("Ereignisstrom & SLA" if LANG == "de" else "Event stream & SLA"),
+    subtitle=((f"{style.fmt_int(n_total)} offene Ereignisse "
+               f"· {style.fmt_int(n_red)} kritisch oder hoch "
+               f"· Pipeline V12.4.") if LANG == "de"
+              else (f"{style.fmt_int(n_total)} open events "
+                    f"· {style.fmt_int(n_red)} critical or high "
+                    f"· Pipeline V12.4.")),
 )
 
 # ---------- Severity key bar (replaces KPI strip) ----------
-labels = [
-    ("critical", "Kritisch · S5"),
-    ("high",     "Hoch · S4"),
-    ("medium",   "Mittel · S3"),
-    ("low",      "Niedrig · S2"),
-    ("info",     "Information · S1"),
-]
+if LANG == "de":
+    labels = [
+        ("critical", "Kritisch · S5"),
+        ("high",     "Hoch · S4"),
+        ("medium",   "Mittel · S3"),
+        ("low",      "Niedrig · S2"),
+        ("info",     "Information · S1"),
+    ]
+else:
+    labels = [
+        ("critical", "Critical · S5"),
+        ("high",     "High · S4"),
+        ("medium",   "Medium · S3"),
+        ("low",      "Low · S2"),
+        ("info",     "Info · S1"),
+    ]
 style.kpi_strip([
     {"label": lbl, "value": style.fmt_int(sev_map.get(sev, 0))}
     for sev, lbl in labels
 ])
 
 # ---------- Ereignisstrom strip (96 cells × 5 rows) ----------
-style.section_head("Ereignisstrom · 7 Tage")
+style.section_head("Ereignisstrom · 7 Tage" if LANG == "de" else "Event stream · 7 days")
 
 import datetime as _dt
 import pandas as _pd
@@ -116,7 +129,7 @@ st.markdown(
 )
 
 # ---------- 3-card row: SLA / Funnel / Donut ----------
-style.section_head("Mix")
+style.section_head("Mix")  # English is the same
 left, mid, right = st.columns([1, 1, 1], gap="medium")
 
 with left:
@@ -179,38 +192,36 @@ with right:
     st.plotly_chart(charts.event_type_bar(by_type), use_container_width=True)
 
 # ---------- Drill-down: Severity → offene Events; Event-Typ → alle Events ----------
-style.section_head("Drill-down · Events hinter den Kacheln")
+style.section_head(i18n.t("dd_events_under"))
 dd_a, dd_b = st.columns(2, gap="medium")
 with dd_a:
     sev_options = (sev_df.sort_values("n", ascending=False)["severity"].tolist()
                    if not sev_df.empty else
                    ["critical", "high", "medium", "low", "info"])
-    sel_sev = st.selectbox("Severity", [""] + sev_options, key="dd_sev")
+    sel_sev = st.selectbox(i18n.t("dd_pick_severity"), [""] + sev_options, key="dd_sev")
     if sel_sev:
         df = data.open_events_by_severity_detail(sel_sev, limit=50)
-        st.caption(f"Nächste 50 offene Events der Severity **{sel_sev}**, sortiert nach SLA")
-        st.dataframe(df.rename(columns={
-            "event_id": "Event-ID", "event_type": "Auslöser",
-            "detected_at": "Erkannt", "sla_due_date": "SLA-Frist",
-            "sla_basis": "Basis", "loan_id": "Kredit-ID",
-            "first_name": "Vorname", "last_name": "Nachname",
+        st.caption((f"Nächste 50 offene Events der Severity **{sel_sev}**, sortiert nach SLA"
+                    if LANG == "de"
+                    else f"Next 50 open events at severity **{sel_sev}**, sorted by SLA"))
+        st.dataframe(i18n.rename(df, "event").rename(columns={
+            "first_name": i18n.col("first_name", "client", LANG),
+            "last_name": i18n.col("last_name", "client", LANG),
         }), hide_index=True, use_container_width=True, height=360)
 
 with dd_b:
     type_options = by_type["event_type"].head(15).tolist() if not by_type.empty else []
-    sel_type = st.selectbox("Event-Typ (Top 15)", [""] + type_options, key="dd_type")
+    sel_type = st.selectbox(i18n.t("dd_pick_event_type"), [""] + type_options, key="dd_type")
     if sel_type:
         df = data.events_by_type_detail(sel_type, limit=50)
-        st.caption(f"Letzte 50 Events vom Typ **{sel_type}**")
-        st.dataframe(df.rename(columns={
-            "event_id": "Event-ID", "severity": "Severity", "status": "Status",
-            "detected_at": "Erkannt", "sla_due_date": "SLA-Frist",
-            "sla_basis": "Basis", "loan_id": "Kredit-ID",
-            "first_name": "Vorname", "last_name": "Nachname",
+        st.caption((f"Letzte 50 Events vom Typ **{sel_type}**" if LANG == "de"
+                    else f"Last 50 events of type **{sel_type}**"))
+        st.dataframe(i18n.rename(df, "event").rename(columns={
+            "first_name": i18n.col("first_name", "client", LANG),
+            "last_name": i18n.col("last_name", "client", LANG),
         }), hide_index=True, use_container_width=True, height=360)
 
-# ---------- Hour-of-day heatmap ----------
-style.section_head("Verteilung nach Tageszeit")
+style.section_head("Verteilung nach Tageszeit" if LANG == "de" else "Hour-of-day distribution")
 _hour_evts = data.query("SELECT severity, detected_at FROM event")
 grid = defaultdict(lambda: defaultdict(int))
 if not _hour_evts.empty:
@@ -264,9 +275,13 @@ _n_open = int(data.query(
     "SELECT COUNT(*) AS n FROM event "
     "WHERE status IN ('open','in_progress','escalated')"
 ).iloc[0]["n"])
-style.section_head("Aktive Warteliste", count=f"{style.fmt_int(_n_open)} offen")
+style.section_head(
+    "Aktive Warteliste" if LANG == "de" else "Active queue",
+    count=(f"{style.fmt_int(_n_open)} offen" if LANG == "de"
+           else f"{style.fmt_int(_n_open)} open"),
+)
 
-overdue_only = st.toggle("Nur überfällige", value=False)
+overdue_only = st.toggle("Nur überfällige" if LANG == "de" else "Overdue only", value=False)
 sql = """
     SELECT e.event_id, e.event_type, e.severity, e.status, e.detected_at, e.sla_due_date,
            e.assigned_to, e.loan_id, e.client_id,
