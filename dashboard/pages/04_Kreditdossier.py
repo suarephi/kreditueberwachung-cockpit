@@ -12,7 +12,7 @@ import streamlit as st          # noqa: E402
 import pandas as pd             # noqa: E402
 import plotly.express as px     # noqa: E402
 
-from dashboard import data, charts, style    # noqa: E402
+from dashboard import data, charts, style, i18n    # noqa: E402
 
 st.set_page_config(page_title="Kreditdossier", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -140,17 +140,32 @@ st.download_button(
 )
 
 # ---- Tabs ----
-tabs = st.tabs(["Kredit & Tranchen", "Objekt & Bewertungen", "Tragbarkeit",
-                "Risikokennzahlen", "Ereignisse", "Fälle", "Dokumente",
-                "Haushaltseinkommen", "Konten & Bewegungen"])
+LANG = i18n.current_lang()
+tabs = st.tabs([
+    i18n.t("tab_loan_tranches"), i18n.t("tab_property_valuation"),
+    i18n.t("tab_affordability"), i18n.t("tab_risk_metrics"),
+    i18n.t("tab_events"), i18n.t("tab_cases"), i18n.t("tab_documents"),
+    i18n.t("tab_household_income"), i18n.t("tab_accounts_tx"),
+])
+
+def _transposed(df, table):
+    """Transpose a single-row dataframe and translate the row index."""
+    if df is None or df.empty:
+        return df
+    out = df.T
+    out.index = i18n.index_de_en(out.index, LANG, table)
+    out.columns = ["Wert"] if LANG == "de" else ["Value"]
+    return out
 
 with tabs[0]:
-    st.markdown("**Kredit**")
-    st.dataframe(dossier["loan"].T.rename(columns={0: "Wert"}),
+    st.markdown("**Kredit**" if LANG == "de" else "**Loan**")
+    st.dataframe(_transposed(dossier["loan"], "loan"),
                  use_container_width=True, height=380)
-    st.markdown(f"**Tranchenstruktur** · {len(dossier['tranches'])} Tranchen")
+    n_tr = len(dossier["tranches"])
+    st.markdown(f"**Tranchenstruktur** · {n_tr} Tranchen" if LANG == "de"
+                else f"**Tranche structure** · {n_tr} tranches")
     if dossier["tranches"].empty:
-        st.info("Keine Tranchen.")
+        st.info("Keine Tranchen." if LANG == "de" else "No tranches.")
     else:
         a, b = st.columns([1, 2])
         with a:
@@ -159,37 +174,46 @@ with tabs[0]:
         with b:
             fig_lad = charts.tranche_ladder_bar(dossier["tranches"])
             if fig_lad: st.plotly_chart(fig_lad, use_container_width=True)
-        st.dataframe(dossier["tranches"], use_container_width=True, hide_index=True)
+        st.dataframe(i18n.rename(dossier["tranches"], "tranche"),
+                     use_container_width=True, hide_index=True)
 
 with tabs[1]:
     if prop is not None:
-        st.markdown("**Objekt**")
-        st.dataframe(dossier["property"].T.rename(columns={0: "Wert"}),
+        st.markdown("**Objekt**" if LANG == "de" else "**Property**")
+        st.dataframe(_transposed(dossier["property"], "property"),
                      use_container_width=True, height=300)
-    st.markdown("**Bewertungshistorie**")
+    st.markdown("**Bewertungshistorie**" if LANG == "de" else "**Valuation history**")
     if not dossier["valuations"].empty:
         st.plotly_chart(charts.valuation_history(dossier["valuations"]),
                         use_container_width=True)
-        st.dataframe(dossier["valuations"], use_container_width=True, hide_index=True)
+        st.dataframe(i18n.rename(dossier["valuations"], "valuation"),
+                     use_container_width=True, hide_index=True)
 
 with tabs[2]:
-    st.dataframe(dossier["affordability"], use_container_width=True, hide_index=True)
+    st.dataframe(i18n.rename(dossier["affordability"], "affordability_assessment"),
+                 use_container_width=True, hide_index=True)
 with tabs[3]:
-    st.dataframe(dossier["risk"], use_container_width=True, hide_index=True)
+    st.dataframe(i18n.rename(dossier["risk"], "risk_metrics"),
+                 use_container_width=True, hide_index=True)
 with tabs[4]:
     if not dossier["events"].empty:
-        st.dataframe(dossier["events"], use_container_width=True, height=520, hide_index=True)
+        st.dataframe(i18n.rename(dossier["events"], "event"),
+                     use_container_width=True, height=520, hide_index=True)
 with tabs[5]:
     if not dossier["cases"].empty:
-        st.dataframe(dossier["cases"], use_container_width=True, height=520, hide_index=True)
+        st.dataframe(i18n.rename(dossier["cases"], "loan_case"),
+                     use_container_width=True, height=520, hide_index=True)
 with tabs[6]:
     if not dossier["documents"].empty:
-        st.dataframe(dossier["documents"], use_container_width=True, height=520, hide_index=True)
+        st.dataframe(i18n.rename(dossier["documents"], "document"),
+                     use_container_width=True, height=520, hide_index=True)
 with tabs[7]:
-    st.markdown("**Haushaltsmitglieder**")
-    st.dataframe(dossier["members"], use_container_width=True, hide_index=True)
-    st.markdown("**Haushaltseinkommen**")
-    st.dataframe(dossier["incomes"], use_container_width=True, hide_index=True)
+    st.markdown("**Haushaltsmitglieder**" if LANG == "de" else "**Household members**")
+    st.dataframe(i18n.rename(dossier["members"], "client"),
+                 use_container_width=True, hide_index=True)
+    st.markdown("**Haushaltseinkommen**" if LANG == "de" else "**Household income**")
+    st.dataframe(i18n.rename(dossier["incomes"], "income"),
+                 use_container_width=True, hide_index=True)
 
 with tabs[8]:
     cid = int(loan["primary_client_id"])
@@ -201,16 +225,16 @@ with tabs[8]:
 
     if accounts.empty:
         st.info("Dieser Kunde hat keine Konten im Datensatz "
-                "(Tx-Erfassung läuft nur für ~5 % des Bestandes).")
+                "(Tx-Erfassung läuft nur für ~5 % des Bestandes)."
+                if LANG == "de" else
+                "This client has no accounts in the dataset "
+                "(transactions are sampled for ~5 % of the book).")
     else:
-        st.markdown("**Konten**")
-        st.dataframe(accounts.rename(columns={
-            "account_id": "Konto-ID", "iban": "IBAN", "account_type": "Typ",
-            "current_balance_chf": "Saldo (CHF)",
-            "avg_balance_12m_chf": "Ø Saldo 12 Mt (CHF)",
-            "opened_date": "Eröffnung",
-        }).style.format({
-            "Saldo (CHF)": "{:,.0f}", "Ø Saldo 12 Mt (CHF)": "{:,.0f}",
+        st.markdown("**Konten**" if LANG == "de" else "**Accounts**")
+        bal_col = i18n.col("current_balance_chf", "account", LANG)
+        avg_col = i18n.col("avg_balance_12m_chf", "account", LANG)
+        st.dataframe(i18n.rename(accounts, "account").style.format({
+            bal_col: "{:,.0f}", avg_col: "{:,.0f}",
         }), hide_index=True, use_container_width=True)
 
         # Salary trend (24 months) — substr(tx_date,1,7) is portable to PG and SQLite.
@@ -223,14 +247,14 @@ with tabs[8]:
         if not salary_trend.empty:
             col_l, col_r = st.columns([3, 2], gap="medium")
             with col_l:
-                st.markdown("**Lohnzahlungen pro Monat**")
+                st.markdown("**Lohnzahlungen pro Monat**" if LANG == "de"
+                            else "**Monthly salary payments**")
                 fig = px.bar(salary_trend, x="month", y="amount",
                              color_discrete_sequence=[style.ACCENT])
                 fig.update_layout(height=240, margin=dict(l=8, r=8, t=8, b=8),
                                   xaxis_title="", yaxis_title="CHF")
                 st.plotly_chart(fig, use_container_width=True)
             with col_r:
-                # Konsistenz-Ampel gegen Lohnausweis
                 cutoff_12m = data.days_ago(365)
                 cons = data.query("""
                     SELECT i.gross_salary,
@@ -248,13 +272,15 @@ with tabs[8]:
                         dev = (impl - gs) / gs * 100.0
                         flag = ("🟢 ±5 %" if abs(dev) < 5
                                 else ("🟡 5-15 %" if abs(dev) < 15 else "🔴 > 15 %"))
-                        st.markdown("**Konsistenz Lohn ↔ Lohnausweis**")
-                        st.metric("Lohnausweis", f"{gs:,.0f} CHF".replace(",", "'"))
-                        st.metric("Konto-impliziert", f"{impl:,.0f} CHF".replace(",", "'"),
+                        st.markdown("**Konsistenz Lohn ↔ Lohnausweis**" if LANG == "de"
+                                    else "**Salary vs. payslip consistency**")
+                        st.metric("Lohnausweis" if LANG == "de" else "Payslip",
+                                  f"{gs:,.0f} CHF".replace(",", "'"))
+                        st.metric("Konto-impliziert" if LANG == "de" else "Account-implied",
+                                  f"{impl:,.0f} CHF".replace(",", "'"),
                                   delta=f"{dev:+.1f} %")
                         st.markdown(f"**Status:** {flag}")
 
-        # Tx-Anomalien als Events für diesen Loan
         tx_alerts = data.query("""
             SELECT event_id, event_type, severity, detected_at, sla_due_date, title, description
               FROM event
@@ -263,15 +289,11 @@ with tabs[8]:
              ORDER BY detected_at DESC
         """, {"l": int(selected_loan_id)})
         if not tx_alerts.empty:
-            st.markdown("**Tragbarkeits-Alerts aus Bewegungen**")
-            st.dataframe(tx_alerts.rename(columns={
-                "event_id": "Event-ID", "event_type": "Auslöser",
-                "severity": "Severity", "detected_at": "Erkannt",
-                "sla_due_date": "SLA-Frist", "title": "Titel",
-                "description": "Beschreibung",
-            }), hide_index=True, use_container_width=True)
+            st.markdown("**Tragbarkeits-Alerts aus Bewegungen**" if LANG == "de"
+                        else "**Affordability alerts from movements**")
+            st.dataframe(i18n.rename(tx_alerts, "event"),
+                         hide_index=True, use_container_width=True)
 
-        # Materielle Veränderungen
         big = data.query("""
             SELECT at.tx_date, at.category, at.amount_chf, at.counterparty, at.description
               FROM account_tx at JOIN account a ON a.account_id = at.account_id
@@ -281,27 +303,22 @@ with tabs[8]:
              ORDER BY at.tx_date DESC
         """, {"c": cid})
         if not big.empty:
-            st.markdown("**Materielle Bewegungen (> CHF 40'000)**")
-            st.dataframe(big.rename(columns={
-                "tx_date": "Datum", "category": "Kategorie",
-                "amount_chf": "Betrag (CHF)", "counterparty": "Gegenpartei",
-                "description": "Beschreibung",
-            }).style.format({"Betrag (CHF)": "{:+,.0f}"}),
-            hide_index=True, use_container_width=True)
+            st.markdown("**Materielle Bewegungen (> CHF 40'000)**" if LANG == "de"
+                        else "**Material movements (> CHF 40'000)**")
+            amt_col = i18n.col("amount_chf", "account_tx", LANG)
+            st.dataframe(i18n.rename(big, "account_tx").style.format({amt_col: "{:+,.0f}"}),
+                         hide_index=True, use_container_width=True)
 
-        # Letzte 100 Tx
-        st.markdown("**Letzte 100 Buchungen**")
+        st.markdown("**Letzte 100 Buchungen**" if LANG == "de"
+                    else "**Last 100 transactions**")
         recent = data.query("""
             SELECT at.tx_date, at.amount_chf, at.category, at.counterparty, at.description
               FROM account_tx at JOIN account a ON a.account_id = at.account_id
              WHERE a.client_id = :c
              ORDER BY at.tx_date DESC LIMIT 100
         """, {"c": cid})
-        st.dataframe(recent.rename(columns={
-            "tx_date": "Datum", "amount_chf": "Betrag (CHF)",
-            "category": "Kategorie", "counterparty": "Gegenpartei",
-            "description": "Beschreibung",
-        }).style.format({"Betrag (CHF)": "{:+,.2f}"}),
-        hide_index=True, use_container_width=True, height=420)
+        amt_col = i18n.col("amount_chf", "account_tx", LANG)
+        st.dataframe(i18n.rename(recent, "account_tx").style.format({amt_col: "{:+,.2f}"}),
+                     hide_index=True, use_container_width=True, height=420)
 
 style.footer()

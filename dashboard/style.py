@@ -534,6 +534,25 @@ h3 {{ font-size: 17px !important; line-height: 1.25 !important; }}
   stroke: var(--accent) !important;
 }}
 
+/* Language toggle in topnav (DE | EN) */
+.ku-langtoggle {{
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.06em; padding: 4px 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px;
+}}
+.ku-langtoggle .ku-lang-on {{
+  color: var(--accent); padding: 2px 4px;
+}}
+.ku-langtoggle .ku-lang-off {{
+  color: var(--ink-4); padding: 2px 4px; text-decoration: none;
+  border-left: 1px solid var(--line);
+}}
+.ku-langtoggle .ku-lang-off:hover {{
+  color: var(--ink); background: var(--surface-2); border-radius: 3px;
+}}
+
 /* Skeleton-pulse for cached dataframes during initial load */
 [data-testid="stDataFrame"][aria-busy="true"] {{
   background: linear-gradient(90deg,
@@ -590,21 +609,50 @@ def apply_style() -> None:
 
 
 def topnav(active: str = "Übersicht") -> None:
-    """Sticky top nav with brand mark + 8 links + search + bell + user chip."""
-    suffix = f"?k={auth_token()}" if auth_token() else ""
+    """Sticky top nav with brand mark + 8 links + search + lang toggle + user chip."""
+    from . import i18n  # local import — module imports streamlit
+    lang = i18n.current_lang()
+    qp_parts = []
+    if auth_token():
+        qp_parts.append(f"k={auth_token()}")
+    qp_parts.append(f"lang={lang}")
+    suffix = "?" + "&".join(qp_parts)
+
     links = []
     for label, href in NAV_ITEMS:
         cls = "active" if label == active else ""
         url = "/" if href == "/" else "/" + quote(href.lstrip("/"))
         links.append(f'<a class="{cls}" href="{url}{suffix}" target="_self">{label}</a>')
+
+    # Lang toggle: build a URL that flips ?lang= but preserves k= and the page.
+    other_lang = "en" if lang == "de" else "de"
+    toggle_qp = []
+    if auth_token():
+        toggle_qp.append(f"k={auth_token()}")
+    toggle_qp.append(f"lang={other_lang}")
+    # Re-use NAV_ITEMS to get the current page's href — no manual encoding.
+    here_href = next((h for lbl, h in NAV_ITEMS if lbl == active), "/")
+    here_path = "/" if here_href == "/" else "/" + quote(here_href.lstrip("/"))
+    toggle_url = f"{here_path}?{'&'.join(toggle_qp)}"
+    lang_html = (
+        '<div class="ku-langtoggle">'
+        f'<span class="ku-lang-on">{lang.upper()}</span>'
+        f'<a class="ku-lang-off" href="{toggle_url}" target="_self" '
+        f'title="Switch to {other_lang.upper()}">{other_lang.upper()}</a>'
+        '</div>'
+    )
+
+    search_placeholder = ("Kunde, Kreditnummer, Objekt …" if lang == "de"
+                          else "Client, loan ID, object …")
     html = (
         '<div class="ku-topbar"><div class="ku-topbar-inner">'
         '<div class="ku-brand"><div class="ku-brand-mark">K</div>'
         'Kreditüberwachung <small>Cockpit</small></div>'
         f'<nav class="ku-nav" aria-label="Hauptnavigation">{"".join(links)}</nav>'
         '<div class="ku-topbar-right">'
-        '<label class="ku-search"><span style="opacity:0.6">⌕</span>'
-        '<input placeholder="Kunde, Kreditnummer, Objekt …" disabled>'
+        f'{lang_html}'
+        f'<label class="ku-search"><span style="opacity:0.6">⌕</span>'
+        f'<input placeholder="{search_placeholder}" disabled>'
         '<kbd>⌘K</kbd></label>'
         '<div class="ku-userchip"><div class="ku-avatar">ES</div>'
         '<span>E. Schärli</span></div>'
