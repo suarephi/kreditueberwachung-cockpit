@@ -89,6 +89,43 @@ with right:
             use_container_width=True, height=560, hide_index=True,
         )
 
+style.section_head(f"Drill-down · Szenario {chosen}")
+dd_a, dd_b = st.columns(2, gap="medium")
+
+with dd_a:
+    st.caption("Top 50 Belehnungssprünge mit Kunde + Objekt")
+    detail = data.stress_top_jumps_detail(chosen, limit=50)
+    if not detail.empty:
+        st.dataframe(detail.rename(columns={
+            "loan_id": "Kredit-ID",
+            "first_name": "Vorname", "last_name": "Nachname",
+            "canton": "Kanton", "object_type": "Objekt",
+            "base_ltv": "LTV Basis", "stressed_ltv": "LTV gestresst",
+            "jump": "Δ LTV",
+            "base_el": "EV Basis", "stressed_expected_loss": "EV gestresst",
+        }).style.format({
+            "LTV Basis": "{:.1f}", "LTV gestresst": "{:.1f}", "Δ LTV": "{:+.1f}",
+            "EV Basis": "{:,.0f}", "EV gestresst": "{:,.0f}",
+        }).background_gradient(subset=["Δ LTV"], cmap="Reds"),
+        hide_index=True, use_container_width=True, height=400)
+
+with dd_b:
+    canton_opts = sorted(per_canton["canton_code"].dropna().unique().tolist()) if not per_canton.empty else []
+    sel = st.selectbox("Kanton-Drill-down", [""] + canton_opts, key="dd_stress_kanton")
+    if sel:
+        df = data.stress_loans_by_canton(chosen, sel, limit=50)
+        st.caption(f"Top 50 Kredite in **{sel}** unter {chosen}")
+        st.dataframe(df.rename(columns={
+            "loan_id": "Kredit-ID",
+            "first_name": "Vorname", "last_name": "Nachname",
+            "object_type": "Objekt",
+            "stressed_ltv": "LTV gestresst",
+            "stressed_expected_loss": "EV gestresst",
+            "covenant_breach_flag": "Covenant",
+        }).style.format({
+            "LTV gestresst": "{:.1f}", "EV gestresst": "{:,.0f}",
+        }), hide_index=True, use_container_width=True, height=400)
+
 style.section_head("Szenarienvergleich · letzte Periode")
 comp = data.query("""
     SELECT s.scenario_id, s.name, s.severity,

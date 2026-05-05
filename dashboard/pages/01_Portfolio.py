@@ -137,4 +137,37 @@ with right:
                                      color=style.SEV_RED),
                     use_container_width=True)
 
+# ---------------------------------------------------------------------------
+# Drill-down: Top-Kredite je Kanton oder Objekttyp
+# ---------------------------------------------------------------------------
+style.section_head("Drill-down · Kredite je Kanton oder Objekttyp")
+dd_left, dd_right = st.columns(2, gap="medium")
+
+with dd_left:
+    canton_options = sorted(per_canton["canton_code"].dropna().unique().tolist())
+    sel_canton = st.selectbox("Kanton", [""] + canton_options, key="dd_canton")
+    if sel_canton:
+        df = data.loans_by_canton(sel_canton, limit=50)
+        st.caption(f"Top 50 Kredite in **{sel_canton}** nach Saldo")
+        st.dataframe(df.rename(columns={
+            "loan_id": "Kredit-ID", "client_id": "Kunden-ID",
+            "first_name": "Vorname", "last_name": "Nachname",
+            "object_type": "Objekt", "current_outstanding": "Saldo",
+            "ltv_pct": "LTV", "dsti_pct": "DSTI", "expected_loss": "EV",
+        }), hide_index=True, use_container_width=True, height=380)
+
+with dd_right:
+    obj_options = data.object_type_mix()["object_type"].tolist()
+    sel_obj = st.selectbox("Objekttyp", [""] + obj_options, key="dd_obj")
+    if sel_obj:
+        df = data.loans_by_object_type(sel_obj, limit=50)
+        st.caption(f"Top 50 Kredite mit Objekttyp **{sel_obj}** nach Saldo")
+        st.dataframe(df.rename(columns={
+            "loan_id": "Kredit-ID", "client_id": "Kunden-ID",
+            "first_name": "Vorname", "last_name": "Nachname",
+            "canton": "Kanton", "city": "Ort",
+            "current_outstanding": "Saldo",
+            "ltv_pct": "LTV", "dsti_pct": "DSTI", "expected_loss": "EV",
+        }), hide_index=True, use_container_width=True, height=380)
+
 style.footer()

@@ -406,6 +406,148 @@ def dq_examples(rule: str, limit: int = 25) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Drill-down helpers — return loan-level / event-level rows behind an aggregation
+# ---------------------------------------------------------------------------
+@st.cache_data(ttl=180, show_spinner=False)
+def loans_by_canton(canton_code: str, limit: int = 50) -> pd.DataFrame:
+    return query("""
+        SELECT l.loan_id, l.primary_client_id AS client_id,
+               c.first_name, c.last_name, p.object_type,
+               l.current_outstanding, l.ltv_pct, l.dsti_pct,
+               rm.expected_loss
+          FROM loan l
+          JOIN client c   ON c.client_id   = l.primary_client_id
+          JOIN property p USING(property_id)
+          JOIN address a  ON a.address_id  = p.address_id
+          LEFT JOIN risk_metrics rm ON rm.loan_id = l.loan_id
+         WHERE a.canton = :c
+         ORDER BY l.current_outstanding DESC
+         LIMIT :n
+    """, {"c": canton_code, "n": int(limit)})
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def loans_by_object_type(object_type: str, limit: int = 50) -> pd.DataFrame:
+    return query("""
+        SELECT l.loan_id, l.primary_client_id AS client_id,
+               c.first_name, c.last_name, a.canton, a.city,
+               l.current_outstanding, l.ltv_pct, l.dsti_pct,
+               rm.expected_loss
+          FROM loan l
+          JOIN client c   ON c.client_id   = l.primary_client_id
+          JOIN property p USING(property_id)
+          JOIN address a  ON a.address_id  = p.address_id
+          LEFT JOIN risk_metrics rm ON rm.loan_id = l.loan_id
+         WHERE p.object_type = :t
+         ORDER BY l.current_outstanding DESC
+         LIMIT :n
+    """, {"t": object_type, "n": int(limit)})
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def open_events_by_severity_detail(severity: str, limit: int = 50) -> pd.DataFrame:
+    return query("""
+        SELECT e.event_id, e.event_type, e.detected_at, e.sla_due_date, e.sla_basis,
+               e.status, e.loan_id, c.first_name, c.last_name
+          FROM event e
+          LEFT JOIN client c ON c.client_id = e.client_id
+         WHERE e.status IN ('open','in_progress','escalated')
+           AND e.severity = :s
+         ORDER BY e.sla_due_date ASC
+         LIMIT :n
+    """, {"s": severity, "n": int(limit)})
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def events_by_type_detail(event_type: str, limit: int = 50) -> pd.DataFrame:
+    return query("""
+        SELECT e.event_id, e.severity, e.status, e.detected_at, e.sla_due_date,
+               e.sla_basis, e.loan_id, c.first_name, c.last_name
+          FROM event e
+          LEFT JOIN client c ON c.client_id = e.client_id
+         WHERE e.event_type = :t
+         ORDER BY e.detected_at DESC
+         LIMIT :n
+    """, {"t": event_type, "n": int(limit)})
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def loans_by_risk_flag(flag: str, limit: int = 50) -> pd.DataFrame:
+    """flag in {'watchlist','npl','forbearance'}."""
+    flag_map = {
+        "watchlist":   "rm.watchlist_flag = 1",
+        "npl":         "rm.npl_flag = 1",
+        "forbearance": "rm.forbearance_flag = 1",
+    }
+    cond = flag_map.get(flag, "rm.watchlist_flag = 1")
+    return query(f"""
+        SELECT l.loan_id, l.primary_client_id AS client_id,
+               c.first_name, c.last_name, a.canton, p.object_type,
+               l.current_outstanding, l.ltv_pct, l.dsti_pct,
+               rm.expected_loss, rm.pd_1y, rm.days_past_due
+          FROM loan l
+          JOIN client c   ON c.client_id   = l.primary_client_id
+          JOIN property p USING(property_id)
+          JOIN address a  ON a.address_id  = p.address_id
+          JOIN risk_metrics rm ON rm.loan_id = l.loan_id
+         WHERE {cond}
+         ORDER BY rm.expected_loss DESC
+         LIMIT :n
+    """, {"n": int(limit)})
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def loans_by_affordability(pass_fail: str, limit: int = 50) -> pd.DataFrame:
+    return query("""
+        SELECT l.loan_id, l.primary_client_id AS client_id,
+               c.first_name, c.last_name, a.canton, p.object_type,
+               aff.dsti_calculated, aff.dsti_threshold, aff.income_basis,
+               l.current_outstanding, l.ltv_pct
+          FROM affordability_assessment aff
+          JOIN loan l     ON l.loan_id     = aff.loan_id
+          JOIN client c   ON c.client_id   = l.primary_client_id
+          JOIN property p USING(property_id)
+          JOIN address a  ON a.address_id  = p.address_id
+         WHERE aff.pass_fail = :pf
+         ORDER BY aff.dsti_calculated DESC
+         LIMIT :n
+    """, {"pf": pass_fail, "n": int(limit)})
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def stress_top_jumps_detail(scenario_id: str, limit: int = 50) -> pd.DataFrame:
+    return query("""
+        SELECT v.loan_id, c.first_name, c.last_name, a.canton, p.object_type,
+               v.base_ltv, v.stressed_ltv, v.stressed_ltv - v.base_ltv AS jump,
+               v.base_el, v.stressed_expected_loss
+          FROM v_stress_loan_compare v
+          JOIN loan l     ON l.loan_id     = v.loan_id
+          JOIN client c   ON c.client_id   = l.primary_client_id
+          JOIN property p USING(property_id)
+          JOIN address a  ON a.address_id  = p.address_id
+         WHERE v.scenario_id = :s
+           AND v.period = (SELECT MAX(period) FROM stress_loan_metrics WHERE scenario_id = :s)
+         ORDER BY jump DESC LIMIT :n
+    """, {"s": scenario_id, "n": int(limit)})
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def stress_loans_by_canton(scenario_id: str, canton_code: str, limit: int = 50) -> pd.DataFrame:
+    return query("""
+        SELECT m.loan_id, c.first_name, c.last_name, p.object_type,
+               m.stressed_ltv, m.stressed_expected_loss, m.covenant_breach_flag
+          FROM stress_loan_metrics m
+          JOIN loan l     ON l.loan_id     = m.loan_id
+          JOIN client c   ON c.client_id   = l.primary_client_id
+          JOIN property p USING(property_id)
+          JOIN address a  ON a.address_id  = p.address_id
+         WHERE m.scenario_id = :s AND a.canton = :k
+           AND m.period = (SELECT MAX(period) FROM stress_loan_metrics WHERE scenario_id = :s)
+         ORDER BY m.stressed_expected_loss DESC LIMIT :n
+    """, {"s": scenario_id, "k": canton_code, "n": int(limit)})
+
+
+# ---------------------------------------------------------------------------
 # Date helpers exposed for page use
 # ---------------------------------------------------------------------------
 def overdue_count_recent(days_window: int = 90) -> int:

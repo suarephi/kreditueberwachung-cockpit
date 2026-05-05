@@ -178,6 +178,37 @@ with right:
     by_type = data.events_by_type(top=20)
     st.plotly_chart(charts.event_type_bar(by_type), use_container_width=True)
 
+# ---------- Drill-down: Severity → offene Events; Event-Typ → alle Events ----------
+style.section_head("Drill-down · Events hinter den Kacheln")
+dd_a, dd_b = st.columns(2, gap="medium")
+with dd_a:
+    sev_options = (sev_df.sort_values("n", ascending=False)["severity"].tolist()
+                   if not sev_df.empty else
+                   ["critical", "high", "medium", "low", "info"])
+    sel_sev = st.selectbox("Severity", [""] + sev_options, key="dd_sev")
+    if sel_sev:
+        df = data.open_events_by_severity_detail(sel_sev, limit=50)
+        st.caption(f"Nächste 50 offene Events der Severity **{sel_sev}**, sortiert nach SLA")
+        st.dataframe(df.rename(columns={
+            "event_id": "Event-ID", "event_type": "Auslöser",
+            "detected_at": "Erkannt", "sla_due_date": "SLA-Frist",
+            "sla_basis": "Basis", "loan_id": "Kredit-ID",
+            "first_name": "Vorname", "last_name": "Nachname",
+        }), hide_index=True, use_container_width=True, height=360)
+
+with dd_b:
+    type_options = by_type["event_type"].head(15).tolist() if not by_type.empty else []
+    sel_type = st.selectbox("Event-Typ (Top 15)", [""] + type_options, key="dd_type")
+    if sel_type:
+        df = data.events_by_type_detail(sel_type, limit=50)
+        st.caption(f"Letzte 50 Events vom Typ **{sel_type}**")
+        st.dataframe(df.rename(columns={
+            "event_id": "Event-ID", "severity": "Severity", "status": "Status",
+            "detected_at": "Erkannt", "sla_due_date": "SLA-Frist",
+            "sla_basis": "Basis", "loan_id": "Kredit-ID",
+            "first_name": "Vorname", "last_name": "Nachname",
+        }), hide_index=True, use_container_width=True, height=360)
+
 # ---------- Hour-of-day heatmap ----------
 style.section_head("Verteilung nach Tageszeit")
 _hour_evts = data.query("SELECT severity, detected_at FROM event")
