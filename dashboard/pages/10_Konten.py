@@ -42,6 +42,7 @@ kpi = data.query("""
            AVG(current_balance_chf) AS avg_balance
       FROM account
 """).iloc[0]
+_cutoff_12m = data.days_ago(365)
 salary_kpi = data.query("""
     SELECT COUNT(*) AS n_clients,
            AVG(monthly) AS avg_monthly
@@ -49,10 +50,10 @@ salary_kpi = data.query("""
                    AVG(CASE WHEN at.category='salary' THEN at.amount_chf END) AS monthly
               FROM account a JOIN account_tx at ON a.account_id=at.account_id
              WHERE a.account_type='salary'
-               AND at.tx_date >= date('now','-12 months')
-             GROUP BY a.client_id)
+               AND at.tx_date >= :cutoff
+             GROUP BY a.client_id) t
      WHERE monthly IS NOT NULL
-""").iloc[0]
+""", {"cutoff": _cutoff_12m}).iloc[0]
 total_bal_n, total_bal_u = style.fmt_compact(float(kpi["total_balance"] or 0))
 avg_bal_n,   avg_bal_u   = style.fmt_compact(float(kpi["avg_balance"] or 0))
 style.kpi_strip([
@@ -78,10 +79,10 @@ consistency = data.query("""
       JOIN client c ON c.client_id = i.client_id
       JOIN account a ON a.client_id = i.client_id AND a.account_type='salary'
       JOIN account_tx at ON at.account_id = a.account_id
-     WHERE at.tx_date >= date('now','-12 months')
+     WHERE at.tx_date >= :cutoff
        AND i.gross_salary > 0
      GROUP BY i.client_id, c.first_name, c.last_name, c.segment, i.gross_salary
-""")
+""", {"cutoff": _cutoff_12m})
 consistency["status"] = consistency["deviation_pct"].abs().apply(
     lambda d: "🟢 ±5%" if d < 5 else ("🟡 5–15%" if d < 15 else "🔴 >15%"))
 
@@ -134,11 +135,12 @@ alerts = data.query("""
       JOIN loan l   ON l.loan_id   = e.loan_id
       JOIN client c ON c.client_id = e.client_id
       LEFT JOIN (
-          SELECT loan_id, dsti_calculated, household_income_used, pass_fail,
-                 MAX(assessment_date) AS d
-            FROM affordability_assessment
-           WHERE income_basis LIKE '%Recheck nach Tx%'
-           GROUP BY loan_id
+          SELECT loan_id, dsti_calculated, household_income_used, pass_fail
+            FROM (SELECT loan_id, dsti_calculated, household_income_used, pass_fail,
+                         ROW_NUMBER() OVER (PARTITION BY loan_id ORDER BY assessment_date DESC) AS rn
+                    FROM affordability_assessment
+                   WHERE income_basis LIKE '%Recheck nach Tx%') x
+           WHERE rn = 1
       ) aff ON aff.loan_id = e.loan_id
      WHERE e.title LIKE '%Tx-Anomalie%' OR e.title LIKE '%Lohnausfall%'
      ORDER BY e.detected_at DESC
