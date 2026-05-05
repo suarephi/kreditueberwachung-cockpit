@@ -66,6 +66,8 @@ NAV_ITEMS = [
     ("Überwachung",   "/Überwachung"),
     ("Risikofälle",   "/Risikofälle"),
     ("Kreditdossier", "/Kreditdossier"),
+    ("Wertschriften", "/Wertschriften"),
+    ("Konten",        "/Konten"),
     ("Stresstest",    "/Stresstest"),
     ("Datenqualität", "/Datenqualität"),
     ("Datenprofil",   "/Datenprofil"),
