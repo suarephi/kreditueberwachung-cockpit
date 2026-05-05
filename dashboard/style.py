@@ -484,6 +484,68 @@ h3 {{ font-size: 17px !important; line-height: 1.25 !important; }}
   border-radius: var(--r-md); border: 1px solid var(--line);
   background: var(--surface);
 }}
+
+/* ----------------------------------------------------------------------
+   Loading indicators — top-of-page progress bar + branded native spinner
+   ---------------------------------------------------------------------- */
+.stApp::before {{
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: 2px;
+  z-index: 1000; pointer-events: none;
+  background: linear-gradient(90deg,
+      transparent 0%, var(--accent-line) 30%, var(--accent) 50%,
+      var(--accent-line) 70%, transparent 100%);
+  background-size: 220% 100%;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}}
+.stApp[data-test-script-state="running"]::before,
+.stApp[data-test-script-state="rerunning"]::before {{
+  opacity: 1;
+  animation: ku-loadbar 1.1s linear infinite;
+}}
+@keyframes ku-loadbar {{
+  0%   {{ background-position: 100% 0%; }}
+  100% {{ background-position: -120% 0%; }}
+}}
+
+/* Streamlit native running indicator (top-right) → olive instead of red */
+[data-testid="stStatusWidget"] {{
+  background: var(--surface) !important;
+  border: 1px solid var(--accent-line) !important;
+  color: var(--accent) !important;
+}}
+
+/* Native st.spinner() inline blocks — branded olive ring + cream label card */
+[data-testid="stSpinner"] {{
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  display: inline-flex; align-items: center; gap: 12px;
+  color: var(--ink-2);
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 0.01em;
+}}
+[data-testid="stSpinner"] > div:first-child,
+[data-testid="stSpinner"] svg {{
+  border-color: var(--accent-soft) !important;
+  border-top-color: var(--accent) !important;
+  color: var(--accent) !important;
+  stroke: var(--accent) !important;
+}}
+
+/* Skeleton-pulse for cached dataframes during initial load */
+[data-testid="stDataFrame"][aria-busy="true"] {{
+  background: linear-gradient(90deg,
+      var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: ku-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--r-md);
+}}
+@keyframes ku-shimmer {{
+  0%   {{ background-position: 100% 0%; }}
+  100% {{ background-position: -100% 0%; }}
+}}
 </style>
 """
 
