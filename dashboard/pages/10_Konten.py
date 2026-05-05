@@ -72,9 +72,9 @@ consistency = data.query("""
     SELECT i.client_id,
            c.first_name, c.last_name, c.segment,
            i.gross_salary,
-           ROUND(12.0 * AVG(CASE WHEN at.category='salary' THEN at.amount_chf END), 0) AS implied_annual,
-           ROUND(100.0 * (12.0 * AVG(CASE WHEN at.category='salary' THEN at.amount_chf END)
-                         - i.gross_salary) / i.gross_salary, 1) AS deviation_pct
+           ROUND(CAST(12.0 * AVG(CASE WHEN at.category='salary' THEN at.amount_chf END) AS numeric), 0) AS implied_annual,
+           ROUND(CAST(100.0 * (12.0 * AVG(CASE WHEN at.category='salary' THEN at.amount_chf END)
+                              - i.gross_salary) / i.gross_salary AS numeric), 1) AS deviation_pct
       FROM income i
       JOIN client c ON c.client_id = i.client_id
       JOIN account a ON a.client_id = i.client_id AND a.account_type='salary'

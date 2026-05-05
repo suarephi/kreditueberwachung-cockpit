@@ -63,8 +63,8 @@ left, right = st.columns([1, 1], gap="medium")
 with left:
     by_strategy = data.query("""
         SELECT strategy, COUNT(*) AS n,
-               ROUND(SUM(total_value_chf)/1e6, 2) AS aum_mchf,
-               ROUND(AVG(ytd_return_pct), 2) AS ytd
+               ROUND(CAST(SUM(total_value_chf)/1e6 AS numeric), 2) AS aum_mchf,
+               ROUND(CAST(AVG(ytd_return_pct) AS numeric), 2) AS ytd
           FROM portfolio GROUP BY strategy
     """)
     label_map = {
@@ -93,7 +93,7 @@ with right:
 # ---------- Asset-Allokation ----------
 style.section_head("Asset-Allokation · gesamt")
 by_ac = data.query("""
-    SELECT asset_class, ROUND(SUM(market_value_chf)/1e6, 2) AS mchf, COUNT(*) AS positions
+    SELECT asset_class, ROUND(CAST(SUM(market_value_chf)/1e6 AS numeric), 2) AS mchf, COUNT(*) AS positions
       FROM position GROUP BY asset_class ORDER BY mchf DESC
 """)
 ac_labels = {"bond": "Bond", "etf_bond": "Bond-ETF", "equity": "Aktie",
