@@ -38,6 +38,8 @@ TABLES = [
     "event", "loan_case", "document", "audit_log",
     # securities
     "portfolio", "position",
+    # accounts (large)
+    "account", "account_tx",
     # stress
     "stress_scenario", "stress_index_overlay", "stress_rate_overlay",
     "stress_macro_overlay", "stress_property_value",

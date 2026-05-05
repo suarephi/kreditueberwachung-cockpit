@@ -24,6 +24,8 @@ DROP TABLE IF EXISTS document                    CASCADE;
 DROP TABLE IF EXISTS loan_case                   CASCADE;
 DROP TABLE IF EXISTS event                       CASCADE;
 
+DROP TABLE IF EXISTS account_tx                  CASCADE;
+DROP TABLE IF EXISTS account                     CASCADE;
 DROP TABLE IF EXISTS position                    CASCADE;
 DROP TABLE IF EXISTS portfolio                   CASCADE;
 DROP TABLE IF EXISTS risk_metrics                CASCADE;
@@ -365,6 +367,35 @@ CREATE TABLE position (
 );
 CREATE INDEX ix_position_portfolio ON position(portfolio_id);
 CREATE INDEX ix_position_isin      ON position(isin);
+
+-- ---------- KONTEN + TRANSAKTIONEN (Bewegungsanalyse) ----------
+CREATE TABLE account (
+  account_id          BIGINT PRIMARY KEY,
+  client_id           BIGINT NOT NULL REFERENCES client(client_id),
+  iban                TEXT NOT NULL,
+  account_type        TEXT NOT NULL CHECK (account_type IN
+                          ('salary','savings','mortgage_servicing','rental','joint')),
+  currency            TEXT NOT NULL DEFAULT 'CHF',
+  opened_date         TEXT NOT NULL,
+  current_balance_chf DOUBLE PRECISION NOT NULL,
+  avg_balance_12m_chf DOUBLE PRECISION,
+  status              TEXT NOT NULL DEFAULT 'active'
+);
+CREATE INDEX ix_account_client ON account(client_id);
+
+CREATE TABLE account_tx (
+  tx_id               BIGINT PRIMARY KEY,
+  account_id          BIGINT NOT NULL REFERENCES account(account_id),
+  tx_date             TEXT NOT NULL,
+  value_date          TEXT NOT NULL,
+  amount_chf          DOUBLE PRECISION NOT NULL,
+  category            TEXT NOT NULL,
+  counterparty        TEXT,
+  description         TEXT,
+  reference           TEXT
+);
+CREATE INDEX ix_tx_account_date ON account_tx(account_id, tx_date);
+CREATE INDEX ix_tx_category     ON account_tx(category);
 
 -- ---------- SURVEILLANCE ----------
 CREATE TABLE event (
