@@ -542,8 +542,8 @@ def topnav(active: str = "Übersicht") -> None:
         '<label class="ku-search"><span style="opacity:0.6">⌕</span>'
         '<input placeholder="Kunde, Kreditnummer, Objekt …" disabled>'
         '<kbd>⌘K</kbd></label>'
-        '<div class="ku-userchip"><div class="ku-avatar">EH</div>'
-        '<span>E. Hartmann</span></div>'
+        '<div class="ku-userchip"><div class="ku-avatar">ES</div>'
+        '<span>E. Schärli</span></div>'
         '</div></div></div>'
     )
     st.markdown(html, unsafe_allow_html=True)
