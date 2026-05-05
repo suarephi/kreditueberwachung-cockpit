@@ -17,6 +17,7 @@ from . import audit as audit_mod
 from . import inconsistencies as inc_mod
 from . import securities as securities_mod
 from . import transactions as tx_mod
+from . import events as events_mod
 
 
 # Property fields that only make sense for buildings, never for raw land.
@@ -54,6 +55,150 @@ def _fill_rental_income(properties: pd.DataFrame, val_initial: pd.DataFrame) -> 
                 vac = float(rng.uniform(0.05, 0.12))
                 out[i] = round(m * yld * (1 - vac), 0)
     properties["annual_rental_income_chf"] = out
+
+
+def _accounts_to_events_and_affordability(
+    material_changes: pd.DataFrame,
+    events: pd.DataFrame,
+    affordability: pd.DataFrame,
+    loans: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Treat the account-tx material changes as monitoring signals: append the
+    corresponding event records (income_drop, employer_change, divorce_indicator,
+    third_pillar_payout) and re-run the tragbarkeit calculation with the
+    post-change income. If the new DSTI breaches the threshold, also append a
+    covenant_breach_dsti event.
+
+    Only households whose original income_basis is the salary one ('Lohnausweis
+    Haushalt') get an affordability re-check. MFH/Gewerbe loans use rental
+    cashflow and are unaffected by salary anomalies."""
+    import datetime as dt
+    if material_changes is None or material_changes.empty:
+        return events, affordability
+
+    DSTI_THRESHOLD = config.DSTI_THRESHOLD_PCT
+    EVENT_FOR = {
+        "salary_loss":     ("income_drop",          None),     # severity below
+        "employer_change": ("employer_change",      "low"),
+        "divorce":         ("divorce_indicator",    "medium"),
+        "3a_payout":       ("third_pillar_payout",  "low"),
+    }
+    loans_by_client = loans.groupby("primary_client_id").first()
+    aff_by_loan = affordability.set_index("loan_id")
+    next_event_id = (int(events["event_id"].max()) + 1) if not events.empty else 1
+    next_aff_id = (int(affordability["assessment_id"].max()) + 1) if not affordability.empty else 1
+    new_events: list[dict] = []
+    new_aff: list[dict] = []
+
+    for _, mc in material_changes.iterrows():
+        cid = int(mc["client_id"])
+        if cid not in loans_by_client.index:
+            continue
+        loan = loans_by_client.loc[cid]
+        loan_id = int(loan["loan_id"])
+        change_type = mc["change_type"]
+        change_date = mc["change_date"]
+        change_dt = dt.date.fromisoformat(change_date)
+
+        spec = EVENT_FOR.get(change_type)
+        if spec:
+            etype, sev_override = spec
+            if etype == "income_drop":
+                sev = "high" if int(mc["gap_months"]) >= 3 else "medium"
+            else:
+                sev = sev_override
+            base_days, basis = events_mod.SLA_DAYS_BY_TYPE.get(etype, (30, "RM-Antrag (Default)"))
+            sla_days = max(1, int(round(base_days * events_mod.SEV_MULT[sev])))
+            detected = change_dt + dt.timedelta(days=5)
+            new_events.append({
+                "event_id":       next_event_id,
+                "loan_id":        loan_id,
+                "client_id":      cid,
+                "property_id":    int(loan["property_id"]),
+                "event_type":     etype,
+                "event_subtype":  None,
+                "severity":       sev,
+                "source":         "system",
+                "detected_at":    detected.isoformat(),
+                "occurred_at":    change_date,
+                "title":          etype.replace("_", " ").capitalize() + " (Tx-Anomalie)",
+                "description":    f"Auto-erkannt aus Kontobewegungen: {change_type}",
+                "status":         "open",
+                "assigned_to":    f"OFFICER-{(loan_id % 60) + 1}",
+                "resolved_at":    None,
+                "sla_due_date":   (detected + dt.timedelta(days=sla_days)).isoformat(),
+                "sla_basis":      basis,
+                "linked_case_id": None,
+            })
+            next_event_id += 1
+
+        if change_type in ("salary_loss", "employer_change") and loan_id in aff_by_loan.index:
+            aff_row = aff_by_loan.loc[loan_id]
+            if isinstance(aff_row, pd.DataFrame):
+                aff_row = aff_row.iloc[0]
+            if str(aff_row.get("income_basis", "")) != "Lohnausweis Haushalt":
+                continue
+            old_income = float(aff_row["household_income_used"])
+            factor = float(mc["salary_factor_after"])
+            # Salary_loss with multi-month gap: weight in the zero months.
+            gap = int(mc["gap_months"])
+            effective_factor = factor
+            if change_type == "salary_loss" and gap > 0:
+                # Annualised income after gap = factor * salary; if a long gap
+                # is recent the trailing-12m view is ~factor; if older just factor.
+                effective_factor = factor
+            new_income = max(old_income * effective_factor, 30_000.0)
+            cost = float(aff_row["total_cost_yearly"])
+            new_dsti = (cost / new_income) * 100.0
+            pf = "fail" if new_dsti > DSTI_THRESHOLD else "pass"
+            new_aff.append({
+                "assessment_id":         next_aff_id,
+                "loan_id":               loan_id,
+                "assessment_date":       (change_dt + dt.timedelta(days=30)).isoformat(),
+                "imputed_interest_rate": float(aff_row["imputed_interest_rate"]),
+                "maintenance_rate":      float(aff_row["maintenance_rate"]),
+                "amortization_required": float(aff_row["amortization_required"]),
+                "total_cost_yearly":     round(cost, 0),
+                "household_income_used": round(new_income, 0),
+                "income_basis":          "Lohnausweis Haushalt (Recheck nach Tx-Anomalie)",
+                "dsti_calculated":       round(new_dsti, 2),
+                "dsti_threshold":        DSTI_THRESHOLD,
+                "pass_fail":             pf,
+                "exception_approval_id": None,
+            })
+            next_aff_id += 1
+            if pf == "fail":
+                base_days, basis = events_mod.SLA_DAYS_BY_TYPE.get(
+                    "covenant_breach_dsti", (30, "SBVg-Selbstregulierung"))
+                sla_days = max(1, int(round(base_days * events_mod.SEV_MULT["high"])))
+                detected = change_dt + dt.timedelta(days=10)
+                new_events.append({
+                    "event_id":       next_event_id,
+                    "loan_id":        loan_id,
+                    "client_id":      cid,
+                    "property_id":    int(loan["property_id"]),
+                    "event_type":     "covenant_breach_dsti",
+                    "event_subtype":  None,
+                    "severity":       "high",
+                    "source":         "system",
+                    "detected_at":    detected.isoformat(),
+                    "occurred_at":    change_date,
+                    "title":          "Tragbarkeit nach Lohnausfall überschritten",
+                    "description":    f"DSTI nach Tx-Anomalie ({change_type}): {new_dsti:.1f}% > {DSTI_THRESHOLD}%",
+                    "status":         "open",
+                    "assigned_to":    f"OFFICER-{(loan_id % 60) + 1}",
+                    "resolved_at":    None,
+                    "sla_due_date":   (detected + dt.timedelta(days=sla_days)).isoformat(),
+                    "sla_basis":      basis,
+                    "linked_case_id": None,
+                })
+                next_event_id += 1
+
+    if new_events:
+        events = pd.concat([events, pd.DataFrame(new_events)], ignore_index=True)
+    if new_aff:
+        affordability = pd.concat([affordability, pd.DataFrame(new_aff)], ignore_index=True)
+    return events, affordability
 
 
 def _null_bauland_fields(properties: pd.DataFrame) -> None:
@@ -188,8 +333,13 @@ def run() -> None:
         with _step("securities"):
             portfolios, positions = securities_mod.generate_portfolios(clients_df)
         with _step("accounts_and_tx"):
-            accounts, account_tx = tx_mod.generate_accounts_and_tx(
+            accounts, account_tx, material_changes = tx_mod.generate_accounts_and_tx(
                 clients_df, incomes, loans, properties
+            )
+
+        with _step("tx_to_events_affordability"):
+            events, aff = _accounts_to_events_and_affordability(
+                material_changes, events, aff, loans
             )
 
         addresses_all = pd.concat([addr_clients, addr_property], ignore_index=True)

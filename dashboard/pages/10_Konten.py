@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 import streamlit as st          # noqa: E402
 import plotly.express as px     # noqa: E402
+import pandas as pd             # noqa: E402
 
 from dashboard import data, style    # noqa: E402
 
@@ -120,6 +121,83 @@ else:
     st.info("Keine ausserordentlichen Bewegungen im Datensatz.")
 
 # ---------- Drill-down: Konto wählen, Tx anzeigen ----------
+# ---------- Tragbarkeit-Alerts aus Bewegungen ----------
+style.section_head("Tragbarkeit-Alerts aus Bewegungen",
+                   count="auto-erkannt aus Lohn- und Kontotransaktionen")
+auth_suffix = f"&k={style.auth_token()}" if style.auth_token() else ""
+alerts = data.query("""
+    SELECT e.event_id, e.event_type, e.severity, e.detected_at, e.sla_due_date,
+           e.title, e.description,
+           e.loan_id, c.first_name, c.last_name,
+           aff.dsti_calculated, aff.household_income_used, aff.pass_fail
+      FROM event e
+      JOIN loan l   ON l.loan_id   = e.loan_id
+      JOIN client c ON c.client_id = e.client_id
+      LEFT JOIN (
+          SELECT loan_id, dsti_calculated, household_income_used, pass_fail,
+                 MAX(assessment_date) AS d
+            FROM affordability_assessment
+           WHERE income_basis LIKE '%Recheck nach Tx%'
+           GROUP BY loan_id
+      ) aff ON aff.loan_id = e.loan_id
+     WHERE e.title LIKE '%Tx-Anomalie%' OR e.title LIKE '%Lohnausfall%'
+     ORDER BY e.detected_at DESC
+""")
+if alerts.empty:
+    st.info("Keine Tragbarkeits-Alerts aus Bewegungen im Datensatz.")
+else:
+    counts = alerts["event_type"].value_counts()
+    cols = st.columns(min(5, len(counts)))
+    for i, (etype, n) in enumerate(counts.items()):
+        cols[i % len(cols)].metric(etype, int(n))
+    rows_html = []
+    for _, r in alerts.iterrows():
+        loan_url = f"/Kreditdossier?loan_id={int(r['loan_id'])}{auth_suffix}"
+        sev_color = {"critical": "var(--sev-red)", "high": "var(--sev-red)",
+                     "medium": "var(--sev-amber)", "low": "var(--ink-3)",
+                     "info": "var(--ink-3)"}.get(r["severity"], "var(--ink-3)")
+        dsti = r["dsti_calculated"]
+        dsti_html = (f"<span style='color:{sev_color};font-weight:600'>{dsti:.1f}%</span>"
+                     if pd.notna(dsti) else "—")
+        inc = r["household_income_used"]
+        income_html = (f"{int(inc):,} CHF".replace(",", "'") if pd.notna(inc) else "—")
+        pf = (r["pass_fail"] or "—")
+        pf_html = (f"<span style='color:var(--sev-red);font-weight:600'>{pf}</span>"
+                   if pf == "fail" else pf)
+        rows_html.append(f"""
+<tr>
+  <td><a href="{loan_url}" target="_self" style="text-decoration:none;color:inherit">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--ink-2);font-weight:600">K-{int(r['loan_id']):06d}</div>
+        <div style="color:var(--ink-3);margin-top:2px;font-size:12.5px">{r['first_name']} {r['last_name']}</div>
+      </a></td>
+  <td style="font-size:12.5px">{r['event_type']}</td>
+  <td>{style.chip(r['severity'], 'red' if r['severity'] in ('critical','high') else ('amber' if r['severity']=='medium' else 'green'))}</td>
+  <td style="font-size:12.5px">{r['detected_at']}</td>
+  <td style="text-align:right">{dsti_html}</td>
+  <td style="text-align:right">{income_html}</td>
+  <td>{pf_html}</td>
+  <td><a href="{loan_url}" target="_self" style="color:var(--ink-3);font-size:12.5px;text-decoration:none">Öffnen →</a></td>
+</tr>""")
+    st.markdown(f"""
+<div class="ku-card ku-card-flush" style="margin-top:8px">
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Kredit / Kunde</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Auslöser</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Severity</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Erkannt</th>
+        <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">DSTI neu</th>
+        <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Einkommen neu</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Tragbarkeit</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>{''.join(rows_html)}</tbody>
+  </table>
+</div>
+""", unsafe_allow_html=True)
+
 style.section_head("Drill-down · Transaktionshistorie")
 top_acc = data.query("""
     SELECT a.account_id, c.first_name, c.last_name, a.account_type,

@@ -85,10 +85,13 @@ def generate_accounts_and_tx(
     incomes: pd.DataFrame,
     loans: pd.DataFrame,
     properties: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Build account + account_tx DataFrames. Returns ([], []) when TX_FRAC == 0."""
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Build account + account_tx DataFrames plus a side table of material changes
+    so the pipeline can downstream-trigger income_drop / employer_change /
+    divorce_indicator / third_pillar_payout events and re-compute affordability.
+    Returns (accounts_df, account_tx_df, material_changes_df)."""
     if config.TX_FRAC <= 0:
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
     rng = rngmod.child_rng("transactions")
     today = dt.date.today()
@@ -112,6 +115,7 @@ def generate_accounts_and_tx(
 
     accounts: list[dict] = []
     tx_rows: list[dict] = []
+    material_changes: list[dict] = []
     next_aid = 1
 
     for _, c in sel.iterrows():
@@ -124,15 +128,38 @@ def generate_accounts_and_tx(
         # Effective new salary multiplier kicks in after the change month.
         salary_factor = np.ones(config.TX_MONTHS + 1)
         skip_months: set[int] = set()
+        change_factor_after = 1.0
+        change_gap_months = 0
         if change == "salary_jump":
-            salary_factor[change_month_offset:] = float(rng.uniform(1.15, 1.40))
+            change_factor_after = float(rng.uniform(1.15, 1.40))
+            salary_factor[change_month_offset:] = change_factor_after
         elif change == "salary_loss":
-            gap = int(rng.integers(1, 7))
-            for k in range(change_month_offset, min(config.TX_MONTHS + 1, change_month_offset + gap)):
+            change_gap_months = int(rng.integers(1, 7))
+            for k in range(change_month_offset, min(config.TX_MONTHS + 1,
+                                                     change_month_offset + change_gap_months)):
                 skip_months.add(k)
-            salary_factor[change_month_offset + gap:] = float(rng.uniform(0.65, 0.95))
+            change_factor_after = float(rng.uniform(0.65, 0.95))
+            salary_factor[change_month_offset + change_gap_months:] = change_factor_after
         elif change == "employer_change":
-            salary_factor[change_month_offset:] = float(rng.uniform(0.92, 1.18))
+            change_factor_after = float(rng.uniform(0.92, 1.18))
+            salary_factor[change_month_offset:] = change_factor_after
+
+        # Convert change_month_offset to an actual date so downstream consumers
+        # (event generator, affordability re-check) can stamp records correctly.
+        change_date = None
+        if change is not None:
+            cm_year = start.year + (start.month - 1 + change_month_offset) // 12
+            cm_month = (start.month - 1 + change_month_offset) % 12 + 1
+            change_date = dt.date(cm_year, cm_month, 15)
+            material_changes.append({
+                "client_id":           cid,
+                "change_type":         change,
+                "change_date":         change_date.isoformat(),
+                "salary_factor_after": round(change_factor_after, 4),
+                "gap_months":          change_gap_months,
+                "old_monthly_salary":  round(monthly_salary, 2),
+                "new_monthly_salary":  round(monthly_salary * change_factor_after, 2),
+            })
 
         employer_old = f"AG-{int(rng.integers(1000, 9999))}"
         employer_new = f"AG-{int(rng.integers(1000, 9999))}"
@@ -306,4 +333,5 @@ def generate_accounts_and_tx(
         # Use net-12m-flow / 2 as a stand-in for an average; keeps the column populated.
         acc_df["avg_balance_12m_chf"] = (acc_df["account_id"].map(avg12).fillna(0.0) / 2).round(2)
 
-    return acc_df, tx_df
+    mc_df = pd.DataFrame(material_changes)
+    return acc_df, tx_df, mc_df
