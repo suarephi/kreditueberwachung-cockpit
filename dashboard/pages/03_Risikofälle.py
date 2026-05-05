@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 import streamlit as st          # noqa: E402
 import plotly.express as px     # noqa: E402
 
-from dashboard import data, charts, style    # noqa: E402
+from dashboard import data, charts, style, sla_reference    # noqa: E402
 
 st.set_page_config(page_title="Risikofälle", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -87,5 +87,8 @@ with right:
                           marker=dict(line=dict(color="#FFFFFF", width=2)))
         fig.update_layout(height=300, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
+
+style.section_head("SLA-Matrix · Bearbeitungsfristen pro Auslöser")
+sla_reference.render_reference(in_expander=False)
 
 style.footer()

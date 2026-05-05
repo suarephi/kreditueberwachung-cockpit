@@ -577,10 +577,17 @@ def section_head(title: str, count: str | None = None, right_html: str = "") -> 
     st.markdown(html, unsafe_allow_html=True)
 
 
-def chip(text: str, kind: str = "") -> str:
+def chip(text: str, kind: str = "", tooltip: str = "") -> str:
     """Return an HTML pill (use inside st.markdown)."""
     cls = f"ku-chip {kind}" if kind else "ku-chip"
-    return f'<span class="{cls}"><span class="dot"></span>{text}</span>'
+    tip = f' title="{_html_escape(tooltip)}"' if tooltip else ""
+    cursor = ' style="cursor:help"' if tooltip else ""
+    return f'<span class="{cls}"{tip}{cursor}><span class="dot"></span>{text}</span>'
+
+
+def _html_escape(s: str) -> str:
+    return (s.replace("&", "&amp;").replace('"', "&quot;")
+             .replace("<", "&lt;").replace(">", "&gt;"))
 
 
 def tag_canton(code: str) -> str:
@@ -748,9 +755,13 @@ def kpi_strip(items: list[dict]) -> None:
         if not right and it.get("sparkline"):
             right = sparkline(it["sparkline"])
         left = it.get("delta_html", "")
+        help_text = it.get("help", "")
+        cell_attr = (f' title="{_html_escape(help_text)}" style="cursor:help"'
+                     if help_text else "")
+        label_hint = ' <span style="opacity:0.55;font-size:11px">ⓘ</span>' if help_text else ""
         cells.append(
-            '<div class="ku-kpi">'
-            f'<div class="ku-kpi-label">{label}</div>'
+            f'<div class="ku-kpi"{cell_attr}>'
+            f'<div class="ku-kpi-label">{label}{label_hint}</div>'
             f'<div class="ku-kpi-value">{value}{unit_html}</div>'
             f'<div class="ku-kpi-foot">{left}<span>{right}</span></div>'
             '</div>'

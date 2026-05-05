@@ -23,11 +23,20 @@ style.page_head("Kreditdossier",
                 "Kunde oder Kredit suchen und ins vollständige Überwachungsdossier eintauchen.")
 
 # ---------- Search ----------
+# Deep-link support: /Kreditdossier?loan_id=42 jumps straight to that loan.
+prefill_loan_id = 0
+try:
+    qp = st.query_params.get("loan_id")
+    if qp:
+        prefill_loan_id = int(qp)
+except (TypeError, ValueError):
+    prefill_loan_id = 0
+
 search_col1, search_col2 = st.columns([2, 1])
 search_term  = search_col1.text_input("Suche nach Kunden-ID, Nachname oder Vorname",
                                       placeholder="z. B. Müller · 12345")
 loan_id_input = search_col2.number_input("oder direkt zur Kredit-ID",
-                                          min_value=0, value=0, step=1)
+                                          min_value=0, value=prefill_loan_id, step=1)
 
 selected_loan_id: int | None = None
 if loan_id_input:
@@ -75,8 +84,18 @@ if client is not None:
     sub_lines.append(f"Kunde {client.get('client_id')} · {client.get('language_correspondence')} · "
                      f"{client.get('segment')} · KYC {client.get('kyc_level')}")
 if prop is not None:
+    ot = prop.get("object_type")
+    area_val = prop.get("living_area_sqm")
+    plot_val = prop.get("plot_area_sqm")
+    if ot == "Bauland":
+        size_html = (f"{plot_val:.0f} m² Grundstück" if plot_val is not None
+                     else "Bauland")
+    elif area_val is not None:
+        size_html = f"{area_val:.0f} m²"
+    else:
+        size_html = "—"
     sub_lines.append(
-        f"<b>{prop.get('object_type')}</b> · {prop.get('living_area_sqm'):.0f} m² · "
+        f"<b>{ot}</b> · {size_html} · "
         f"{prop.get('street')} {prop.get('house_number')}, "
         f"{prop.get('postal_code')} {prop.get('city')} ({prop.get('canton')})"
     )

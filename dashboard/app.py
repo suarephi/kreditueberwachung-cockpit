@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 from kreditueberwachung_mock import config           # noqa: E402
-from dashboard import data, db, style, charts, coords  # noqa: E402
+from dashboard import data, db, style, charts, coords, sla_reference  # noqa: E402
 
 st.set_page_config(
     page_title="Kreditüberwachung — Übersicht",
@@ -111,6 +111,7 @@ style.kpi_strip([
     {
         "label": "Offene Ereignisse",
         "value": style.fmt_int(n_open_events),
+        "help": sla_reference.TOOLTIP_OPEN_EVENTS,
         "foot_right_html": (
             f'<span style="display:inline-flex;gap:6px">'
             f'{style.chip(style.fmt_int(n_red), "red")}'
@@ -341,6 +342,7 @@ with esc_col:
     """, {"cutoff": CUTOFF_90D, "two_days": data.days_ahead(2)})
     rows_html = []
     today = dt.date.today()
+    auth_suffix = f"&k={style.auth_token()}" if style.auth_token() else ""
     for _, r in overdue.iterrows():
         sla = dt.date.fromisoformat(str(r["sla_due_date"]))
         delta_days = (sla - today).days
@@ -358,18 +360,21 @@ with esc_col:
         ltv_html = (f'<span style="color:var(--sev-red);font-weight:600">{ltv:.1f}%</span>'
                     if ltv > 80 else f"{ltv:.1f}%")
         ev_short = r["event_type"].replace("_", " ").capitalize()
+        loan_url = f"/Kreditdossier?loan_id={int(r['loan_id'])}{auth_suffix}"
         rows_html.append(f"""
 <tr>
   <td>
-    <div style="font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:0.04em">D-{r['event_id']:06d}</div>
-    <div style="font-weight:600;color:var(--ink);margin-top:2px">{r['first_name']} {r['last_name']}</div>
+    <a href="{loan_url}" target="_self" style="text-decoration:none;color:inherit">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--ink-2);letter-spacing:0.04em;font-weight:600">K-{int(r['loan_id']):06d}</div>
+      <div style="color:var(--ink-3);margin-top:2px;font-size:12.5px">{r['first_name']} {r['last_name']}</div>
+    </a>
   </td>
   <td style="color:var(--ink-2);font-size:12.5px">{ev_short}</td>
   <td>{style.tag_canton(r['canton']) if r['canton'] else '—'}</td>
   <td style="text-align:right;font-variant-numeric:tabular-nums">{style.fmt_chf(r['current_outstanding']).replace(' CHF','')}</td>
   <td style="text-align:right">{ltv_html}</td>
   <td>{style.chip(sla_label, sla_cls)}</td>
-  <td><a href="/Kreditdossier" style="color:var(--ink-3);font-size:12.5px;text-decoration:none">Öffnen →</a></td>
+  <td><a href="{loan_url}" target="_self" style="color:var(--ink-3);font-size:12.5px;text-decoration:none">Öffnen →</a></td>
 </tr>
         """)
     st.markdown(
@@ -381,14 +386,14 @@ with esc_col:
       <div class="ku-cardsub">Sortiert nach Schweregrad und SLA-Restzeit</div>
     </div>
     <div style="display:flex;gap:6px">
-      {style.chip(f"{n_overdue} SLA-Verletzung", "red")}
+      {style.chip(f"{n_overdue} SLA-Verletzung", "red", tooltip=sla_reference.TOOLTIP_SLA_VIOLATION)}
       {style.chip(f"{n_24h} in 24h", "amber")}
     </div>
   </div>
   <table style="width:100%;border-collapse:collapse">
     <thead>
       <tr>
-        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Dossier</th>
+        <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Kredit / Kunde</th>
         <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Ereignis</th>
         <th style="text-align:left;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Kanton</th>
         <th style="text-align:right;padding:10px 12px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2);border-bottom:1px solid var(--line)">Engagement</th>
@@ -506,5 +511,7 @@ style.nav_cards([
      "meta": f"{style.fmt_int(dq['plz_canton_mismatch'] + dq['email_anomalies'])} Auffälligkeiten",
      "href": "/Datenqualität"},
 ])
+
+sla_reference.render_reference(in_expander=True)
 
 style.footer()
