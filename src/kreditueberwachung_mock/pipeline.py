@@ -15,6 +15,7 @@ from . import cases as cases_mod
 from . import documents as docs_mod
 from . import audit as audit_mod
 from . import inconsistencies as inc_mod
+from . import securities as securities_mod
 
 
 # Property fields that only make sense for buildings, never for raw land.
@@ -74,6 +75,7 @@ SCHEMA_FILES = [
     "004_surveillance.sql",
     "005_views.sql",
     "006_stress.sql",
+    "007_securities.sql",
 ]
 
 
@@ -181,6 +183,8 @@ def run() -> None:
             docs = docs_mod.generate_documents(clients_df, loans, properties)
         with _step("audit_log"):
             audit = audit_mod.generate_audit_log(clients_df)
+        with _step("securities"):
+            portfolios, positions = securities_mod.generate_portfolios(clients_df)
 
         addresses_all = pd.concat([addr_clients, addr_property], ignore_index=True)
 
@@ -230,6 +234,10 @@ def run() -> None:
             _bulk_insert(con, "document",               docs)
             _bulk_insert(con, "audit_log",              audit)
 
+        with _step("bulk insert securities"):
+            _bulk_insert(con, "portfolio",              portfolios)
+            _bulk_insert(con, "position",               positions)
+
         with _step("dump CSVs"):
             for name, df in {
                 "client": clients_df, "address": addresses_all, "household": households,
@@ -238,6 +246,7 @@ def run() -> None:
                 "income": incomes, "affordability_assessment": aff, "risk_metrics": rm,
                 "event": events, "case": cases, "document": docs, "audit_log": audit,
                 "fpre_index_history": fpre, "rate_history": rates,
+                "portfolio": portfolios, "position": positions,
             }.items():
                 df.to_csv(config.CSV_DIR / f"{name}.csv", index=False)
 
@@ -259,6 +268,7 @@ def _write_stats(con: sqlite3.Connection) -> None:
         "address", "client", "household", "client_household", "property",
         "valuation", "loan", "tranche", "income", "affordability_assessment",
         "risk_metrics", "event", "loan_case", "document", "audit_log",
+        "portfolio", "position",
     ]
     rows = []
     for t in tables:

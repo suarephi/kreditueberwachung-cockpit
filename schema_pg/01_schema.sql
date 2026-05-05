@@ -24,6 +24,8 @@ DROP TABLE IF EXISTS document                    CASCADE;
 DROP TABLE IF EXISTS loan_case                   CASCADE;
 DROP TABLE IF EXISTS event                       CASCADE;
 
+DROP TABLE IF EXISTS position                    CASCADE;
+DROP TABLE IF EXISTS portfolio                   CASCADE;
 DROP TABLE IF EXISTS risk_metrics                CASCADE;
 DROP TABLE IF EXISTS affordability_assessment    CASCADE;
 DROP TABLE IF EXISTS income                      CASCADE;
@@ -325,6 +327,44 @@ CREATE TABLE risk_metrics (
   covenant_breach_flag     INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX ix_rm_loan ON risk_metrics(loan_id, as_of_date);
+
+-- ---------- WERTSCHRIFTEN (Cross-Sell-Sicht) ----------
+CREATE TABLE portfolio (
+  portfolio_id            BIGINT PRIMARY KEY,
+  client_id               BIGINT NOT NULL REFERENCES client(client_id),
+  strategy                TEXT NOT NULL CHECK (strategy IN
+                              ('konservativ','vorsichtig','mittel','wachstum','aktien')),
+  benchmark               TEXT,
+  inception_date          TEXT NOT NULL,
+  total_value_chf         DOUBLE PRECISION NOT NULL,
+  cash_chf                DOUBLE PRECISION NOT NULL,
+  ytd_return_pct          DOUBLE PRECISION,
+  one_year_return_pct     DOUBLE PRECISION,
+  custodian               TEXT,
+  fee_model               TEXT,
+  last_review_date        TEXT
+);
+CREATE INDEX ix_portfolio_client   ON portfolio(client_id);
+CREATE INDEX ix_portfolio_strategy ON portfolio(strategy);
+
+CREATE TABLE position (
+  position_id             BIGINT PRIMARY KEY,
+  portfolio_id            BIGINT NOT NULL REFERENCES portfolio(portfolio_id),
+  isin                    TEXT NOT NULL,
+  name                    TEXT NOT NULL,
+  asset_class             TEXT NOT NULL CHECK (asset_class IN
+                              ('bond','equity','etf_bond','etf_equity','cash','alternative')),
+  currency                TEXT NOT NULL,
+  quantity                DOUBLE PRECISION NOT NULL,
+  avg_cost_chf            DOUBLE PRECISION,
+  market_price_chf        DOUBLE PRECISION NOT NULL,
+  market_value_chf        DOUBLE PRECISION NOT NULL,
+  unrealized_pnl_chf      DOUBLE PRECISION,
+  weight_pct              DOUBLE PRECISION,
+  last_price_date         TEXT
+);
+CREATE INDEX ix_position_portfolio ON position(portfolio_id);
+CREATE INDEX ix_position_isin      ON position(isin);
 
 -- ---------- SURVEILLANCE ----------
 CREATE TABLE event (

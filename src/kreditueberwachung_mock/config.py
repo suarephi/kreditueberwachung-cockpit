@@ -38,6 +38,7 @@ SEED                   = _int("KU_SEED", 42)
 # Derived volume ratios (set on top of N_CLIENTS).
 SHARE_WITH_LOAN        = 0.95   # → ~95k loans
 SHARE_JOINT_BORROWER   = 0.30   # → joint households
+PORTFOLIO_FRAC         = _float("KU_PORTFOLIO_FRAC", 0.10)   # share of clients with a securities depot
 TRANCHES_PER_LOAN_MEAN = 1.6
 VALUATIONS_PER_PROPERTY = 5     # initial + 4 quarterly/annual revaluations
 EVENTS_PER_LOAN_MEAN   = 6.5    # over loan lifetime; capped 0..30

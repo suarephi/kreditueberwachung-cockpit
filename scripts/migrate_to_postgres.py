@@ -36,6 +36,8 @@ TABLES = [
     "affordability_assessment", "risk_metrics",
     # surveillance
     "event", "loan_case", "document", "audit_log",
+    # securities
+    "portfolio", "position",
     # stress
     "stress_scenario", "stress_index_overlay", "stress_rate_overlay",
     "stress_macro_overlay", "stress_property_value",
