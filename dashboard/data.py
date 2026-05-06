@@ -341,6 +341,77 @@ def stress_per_canton(scenario_id: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
+def reverse_stress_loans(limit: int = 50) -> pd.DataFrame:
+    """Per-loan headroom: how much can market value drop / income drop before
+    the LTV-80% or DSTI-33% covenant breaks?
+    Returns rows ordered by smallest property-value headroom (most fragile
+    first)."""
+    return query("""
+        WITH cur AS (
+            SELECT l.loan_id, l.primary_client_id, l.current_outstanding,
+                   l.ltv_pct, l.dsti_pct,
+                   v.market_value, p.object_type,
+                   c.first_name, c.last_name, a.canton,
+                   aff.total_cost_yearly, aff.household_income_used
+              FROM loan l
+              JOIN client c   ON c.client_id   = l.primary_client_id
+              JOIN property p USING(property_id)
+              JOIN address a  ON a.address_id  = p.address_id
+              JOIN v_current_valuation v ON v.property_id = p.property_id
+              LEFT JOIN (
+                  SELECT loan_id, total_cost_yearly, household_income_used,
+                         ROW_NUMBER() OVER (PARTITION BY loan_id ORDER BY assessment_date DESC) AS rn
+                    FROM affordability_assessment
+              ) aff ON aff.loan_id = l.loan_id AND aff.rn = 1
+        )
+        SELECT loan_id, primary_client_id AS client_id,
+               first_name, last_name, canton, object_type,
+               current_outstanding, ltv_pct, dsti_pct,
+               market_value, total_cost_yearly, household_income_used,
+               -- Property-value drop (%) until LTV exceeds 80
+               CASE WHEN market_value > 0 AND current_outstanding > 0
+                    THEN GREATEST(0,
+                                   100.0 * (1.0 - (current_outstanding / 0.80) / market_value))
+                    ELSE 0 END AS property_headroom_pct,
+               -- Income drop (%) until DSTI exceeds 33
+               CASE WHEN household_income_used > 0 AND total_cost_yearly > 0
+                    THEN GREATEST(0,
+                                   100.0 * (1.0 - (total_cost_yearly / 0.33) / household_income_used))
+                    ELSE 0 END AS income_headroom_pct,
+               -- LTV headroom in percentage points until 80
+               GREATEST(0, 80.0 - ltv_pct) AS ltv_headroom_pp,
+               -- DSTI headroom in percentage points until 33
+               GREATEST(0, 33.0 - dsti_pct) AS dsti_headroom_pp
+          FROM cur
+         ORDER BY property_headroom_pct ASC NULLS LAST LIMIT :n
+    """, {"n": int(limit)})
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def reverse_stress_summary() -> pd.DataFrame:
+    """Counts of loans by property-headroom buckets."""
+    return query("""
+        WITH headroom AS (
+            SELECT l.loan_id,
+                   CASE WHEN v.market_value > 0 AND l.current_outstanding > 0
+                        THEN GREATEST(0,
+                                       100.0 * (1.0 - (l.current_outstanding / 0.80) / v.market_value))
+                        ELSE 100 END AS property_headroom_pct
+              FROM loan l
+              JOIN property p USING(property_id)
+              JOIN v_current_valuation v ON v.property_id = p.property_id
+        )
+        SELECT
+          SUM(CASE WHEN property_headroom_pct < 5  THEN 1 ELSE 0 END) AS lt5,
+          SUM(CASE WHEN property_headroom_pct BETWEEN 5  AND 10 THEN 1 ELSE 0 END) AS b5_10,
+          SUM(CASE WHEN property_headroom_pct BETWEEN 10 AND 20 THEN 1 ELSE 0 END) AS b10_20,
+          SUM(CASE WHEN property_headroom_pct BETWEEN 20 AND 30 THEN 1 ELSE 0 END) AS b20_30,
+          SUM(CASE WHEN property_headroom_pct > 30 THEN 1 ELSE 0 END) AS gt30
+          FROM headroom
+    """)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
 def stress_top_jumps(scenario_id: str, limit: int = 25) -> pd.DataFrame:
     return query("""
         SELECT loan_id, base_ltv, stressed_ltv, stressed_ltv-base_ltv AS jump,

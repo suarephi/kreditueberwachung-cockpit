@@ -143,6 +143,77 @@ with dd_b:
             "LTV gestresst": "{:.1f}", "EV gestresst": "{:,.0f}",
         }), hide_index=True, use_container_width=True, height=400)
 
+style.section_head(i18n.t("rs_section"), count=i18n.t("rs_section_sub"))
+rs_summary = data.reverse_stress_summary().iloc[0]
+style.kpi_strip([
+    {"label": i18n.t("rs_kpi_lt5"),
+     "value": style.fmt_int(int(rs_summary["lt5"] or 0)),
+     "delta_html": style.delta(
+         "fragil" if LANG == "de" else "fragile",
+         "Headroom < 5 %" if LANG == "de" else "headroom < 5 %",
+         "down", "bad")},
+    {"label": i18n.t("rs_kpi_5_10"),  "value": style.fmt_int(int(rs_summary["b5_10"] or 0))},
+    {"label": i18n.t("rs_kpi_10_20"), "value": style.fmt_int(int(rs_summary["b10_20"] or 0))},
+    {"label": i18n.t("rs_kpi_20_30"), "value": style.fmt_int(int(rs_summary["b20_30"] or 0))},
+    {"label": i18n.t("rs_kpi_gt30"),  "value": style.fmt_int(int(rs_summary["gt30"] or 0))},
+])
+
+st.markdown(f"<div class='ku-cardhead' style='margin:8px 0 6px'>"
+            f"<div><div class='ku-cardtitle'>{i18n.t('rs_card_top')}</div></div>"
+            f"</div>", unsafe_allow_html=True)
+rs_top = data.reverse_stress_loans(50)
+auth_suffix = f"&k={style.auth_token()}" if style.auth_token() else ""
+rs_rows = []
+for _, r in rs_top.iterrows():
+    p_drop = float(r["property_headroom_pct"] or 0)
+    i_drop = float(r["income_headroom_pct"] or 0)
+    p_kind = "red" if p_drop < 5 else ("amber" if p_drop < 15 else "green")
+    i_kind = "red" if i_drop < 5 else ("amber" if i_drop < 15 else "green")
+    loan_url = f"/Kreditdossier?loan_id={int(r['loan_id'])}{auth_suffix}&lang={LANG}"
+    name = f"{r.get('first_name') or ''} {r.get('last_name') or ''}".strip()
+    rs_rows.append(f"""
+<tr>
+  <td>
+    <a href="{loan_url}" target="_self" style="color:inherit;text-decoration:none">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">K-{int(r['loan_id']):06d}</div>
+      <div style="color:var(--ink);font-weight:500;font-size:12.5px">{name}</div>
+    </a>
+  </td>
+  <td>{style.tag_canton(r.get('canton')) if r.get('canton') else '—'}</td>
+  <td style="font-size:12.5px">{r.get('object_type') or '—'}</td>
+  <td style="text-align:right">{r['ltv_pct']:.1f}%</td>
+  <td style="text-align:right">{r['dsti_pct']:.1f}%</td>
+  <td style="text-align:right">{style.chip(f'{p_drop:.1f}%', p_kind)}</td>
+  <td style="text-align:right">{style.chip(f'{i_drop:.1f}%', i_kind)}</td>
+  <td style="text-align:right;font-variant-numeric:tabular-nums">{r['ltv_headroom_pp']:.1f}</td>
+  <td style="text-align:right;font-variant-numeric:tabular-nums">{r['dsti_headroom_pp']:.1f}</td>
+</tr>""")
+th_titles = (
+    (i18n.t("klr_th_client"), i18n.t("klr_th_canton"), "Objekt",
+     "LTV", "DSTI",
+     i18n.t("rs_th_propdrop"), i18n.t("rs_th_incomedrop"),
+     i18n.t("rs_th_ltv_pp"), i18n.t("rs_th_dsti_pp"))
+    if LANG == "de" else
+    (i18n.t("klr_th_client"), i18n.t("klr_th_canton"), "Object",
+     "LTV", "DSTI",
+     i18n.t("rs_th_propdrop"), i18n.t("rs_th_incomedrop"),
+     i18n.t("rs_th_ltv_pp"), i18n.t("rs_th_dsti_pp"))
+)
+th = "".join(
+    f'<th style="text-align:left;padding:9px 10px;font-size:11px;'
+    f'font-weight:500;letter-spacing:0.06em;text-transform:uppercase;'
+    f'color:var(--ink-3);background:var(--surface-2);'
+    f'border-bottom:1px solid var(--line)">{c}</th>'
+    for c in th_titles
+)
+st.markdown(
+    f'<div class="ku-card ku-card-flush"><table style="width:100%;'
+    f'border-collapse:collapse">'
+    f'<thead><tr>{th}</tr></thead>'
+    f'<tbody>{"".join(rs_rows)}</tbody></table></div>',
+    unsafe_allow_html=True,
+)
+
 style.section_head("Szenarienvergleich · letzte Periode" if LANG == "de"
                    else "Scenario comparison · last period")
 comp = data.query("""
