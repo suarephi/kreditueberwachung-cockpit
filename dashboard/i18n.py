@@ -537,6 +537,7 @@ UI: dict[str, dict[str, str]] = {
         "nav_data_quality":    "Datenqualität",
         "nav_data_profile":    "Datenprofil",
         "nav_downloads":       "Downloads",
+        "nav_ai_search":       "AI-Suche",
         # Footer
         "footer_left":  "Kreditüberwachung Cockpit · Pipeline V12.4 · Bewertung Fahrländer V4.2 · GeoJSON CH 2024",
         "footer_right": "© Treasury & Risk · vertraulich · v0.9.1",
@@ -766,6 +767,7 @@ UI: dict[str, dict[str, str]] = {
         "nav_data_quality":    "Data Quality",
         "nav_data_profile":    "Data Profile",
         "nav_downloads":       "Downloads",
+        "nav_ai_search":       "AI Search",
         "footer_left":  "Credit Monitoring Cockpit · Pipeline V12.4 · Fahrländer Valuation V4.2 · GeoJSON CH 2024",
         "footer_right": "© Treasury & Risk · confidential · v0.9.1",
         "overview_greeting":     "Good morning, Erich.",

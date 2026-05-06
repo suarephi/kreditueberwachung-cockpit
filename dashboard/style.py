@@ -73,6 +73,7 @@ NAV_ITEMS = [
     ("Datenqualität", "/Datenqualität", "nav_data_quality"),
     ("Datenprofil",   "/Datenprofil",   "nav_data_profile"),
     ("Downloads",     "/Downloads",     "nav_downloads"),
+    ("AI-Suche",      "/AI_Suche",      "nav_ai_search"),
 ]
 
 
