@@ -645,6 +645,19 @@ def topnav(active: str = "Übersicht") -> None:
     )
 
     search_placeholder = i18n.t("search_placeholder")
+    # Hidden inputs preserve auth token + lang on form submit so the user stays
+    # signed in and in the same language after pressing Enter.
+    auth_hidden = (f'<input type="hidden" name="k" value="{auth_token()}">'
+                   if auth_token() else '')
+    search_form = (
+        '<form action="/Suche" method="get" class="ku-search">'
+        '<span style="opacity:0.6">⌕</span>'
+        f'<input name="q" placeholder="{search_placeholder}" autocomplete="off" '
+        'spellcheck="false">'
+        f'{auth_hidden}'
+        f'<input type="hidden" name="lang" value="{lang}">'
+        '<kbd>⏎</kbd></form>'
+    )
     html = (
         '<div class="ku-topbar"><div class="ku-topbar-inner">'
         '<div class="ku-brand"><div class="ku-brand-mark">K</div>'
@@ -652,9 +665,7 @@ def topnav(active: str = "Übersicht") -> None:
         f'<nav class="ku-nav" aria-label="Hauptnavigation">{"".join(links)}</nav>'
         '<div class="ku-topbar-right">'
         f'{lang_html}'
-        f'<label class="ku-search"><span style="opacity:0.6">⌕</span>'
-        f'<input placeholder="{search_placeholder}" disabled>'
-        '<kbd>⌘K</kbd></label>'
+        f'{search_form}'
         '<div class="ku-userchip"><div class="ku-avatar">ES</div>'
         '<span>E. Schärli</span></div>'
         '</div></div></div>'
