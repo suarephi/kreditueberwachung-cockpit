@@ -535,6 +535,30 @@ h3 {{ font-size: 17px !important; line-height: 1.25 !important; }}
   stroke: var(--accent) !important;
 }}
 
+/* Notifications bell in topnav */
+.ku-bell {{
+  position: relative; display: inline-flex; align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 150ms ease-out;
+}}
+.ku-bell:hover {{ background: var(--surface-2); border-color: var(--line-strong); }}
+.ku-bell-icon {{ font-size: 14px; line-height: 1; filter: grayscale(0.4); }}
+.ku-bell-badge {{
+  position: absolute; top: -4px; right: -4px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--sev-red); color: #FFF;
+  font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--bg);
+  letter-spacing: -0.02em;
+}}
+
 /* Language toggle in topnav (DE | EN) */
 .ku-langtoggle {{
   display: inline-flex; align-items: center; gap: 4px;
@@ -609,6 +633,33 @@ def apply_style() -> None:
     st.markdown(_css(), unsafe_allow_html=True)
 
 
+# E. Schärli's officer alias (demo convention so the inbox isn't empty).
+DEMO_OFFICER = "OFFICER-7"
+
+
+def _inbox_bell_html(lang: str) -> str:
+    """Render the notifications-bell with a counter from the live DB."""
+    from . import data
+    suffix = []
+    if auth_token():
+        suffix.append(f"k={auth_token()}")
+    suffix.append(f"lang={lang}")
+    qs = "?" + "&".join(suffix)
+    try:
+        n = int(data.query(
+            "SELECT COUNT(*) AS n FROM event "
+            "WHERE assigned_to = :o AND status IN ('open','in_progress','escalated')",
+            {"o": DEMO_OFFICER},
+        ).iloc[0]["n"])
+    except Exception:
+        n = 0
+    badge = (f'<span class="ku-bell-badge">{n}</span>' if n > 0 else '')
+    title = ("Meine Vorgänge" if lang == "de" else "My queue")
+    return (f'<a class="ku-bell" href="/Inbox{qs}" target="_self" '
+            f'title="{title}: {n}">'
+            f'<span class="ku-bell-icon">🔔</span>{badge}</a>')
+
+
 def topnav(active: str = "Übersicht") -> None:
     """Sticky top nav with brand mark + 8 links + search + lang toggle + user chip."""
     from . import i18n  # local import — module imports streamlit
@@ -666,6 +717,7 @@ def topnav(active: str = "Übersicht") -> None:
         '<div class="ku-topbar-right">'
         f'{lang_html}'
         f'{search_form}'
+        f'{_inbox_bell_html(lang)}'
         '<div class="ku-userchip"><div class="ku-avatar">ES</div>'
         '<span>E. Schärli</span></div>'
         '</div></div></div>'
