@@ -146,6 +146,7 @@ tabs = st.tabs([
     i18n.t("tab_affordability"), i18n.t("tab_risk_metrics"),
     i18n.t("tab_events"), i18n.t("tab_cases"), i18n.t("tab_documents"),
     i18n.t("tab_household_income"), i18n.t("tab_accounts_tx"),
+    i18n.t("tab_audit_log"),
 ])
 
 def _transposed(df, table):
@@ -320,5 +321,67 @@ with tabs[8]:
         amt_col = i18n.col("amount_chf", "account_tx", LANG)
         st.dataframe(i18n.rename(recent, "account_tx").style.format({amt_col: "{:+,.2f}"}),
                      hide_index=True, use_container_width=True, height=420)
+
+with tabs[9]:
+    cid = int(loan["primary_client_id"])
+    pid = int(loan["property_id"])
+    audit = data.query("""
+        SELECT changed_at, entity_type, entity_id, field_name,
+               old_value, new_value, changed_by, source_system
+          FROM audit_log
+         WHERE (entity_type = 'loan'     AND entity_id = :l)
+            OR (entity_type = 'client'   AND entity_id = :c)
+            OR (entity_type = 'property' AND entity_id = :p)
+         ORDER BY changed_at DESC
+         LIMIT 200
+    """, {"l": int(selected_loan_id), "c": cid, "p": pid})
+
+    style.section_head(i18n.t("audit_section"),
+                       count=i18n.t("audit_count").format(n=len(audit)))
+
+    if audit.empty:
+        st.info(i18n.t("audit_no_entries"))
+    else:
+        rows_html = []
+        entity_labels = ({"loan": "Kredit", "client": "Kunde", "property": "Objekt"}
+                         if LANG == "de" else
+                         {"loan": "Loan", "client": "Client", "property": "Property"})
+        entity_chip_kind = {"loan": "amber", "client": "green", "property": ""}
+        for _, r in audit.iterrows():
+            ent_lbl = entity_labels.get(r["entity_type"], r["entity_type"])
+            ent_chip = style.chip(f"{ent_lbl} {int(r['entity_id'])}",
+                                   entity_chip_kind.get(r["entity_type"], ""))
+            field = r.get("field_name") or "—"
+            old_v = r.get("old_value") or "—"
+            new_v = r.get("new_value") or "—"
+            who = r.get("changed_by") or "—"
+            src = r.get("source_system") or "—"
+            when = r.get("changed_at") or ""
+            rows_html.append(f"""
+<tr>
+  <td style="font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap">{when}</td>
+  <td>{ent_chip}</td>
+  <td style="font-family:var(--mono);font-size:11.5px">{field}</td>
+  <td style="color:var(--ink-3);font-size:12.5px">{old_v}</td>
+  <td style="color:var(--ink);font-size:12.5px;font-weight:500">{new_v}</td>
+  <td style="color:var(--ink-2);font-size:12.5px">{who}</td>
+  <td style="color:var(--ink-3);font-size:11.5px">{src}</td>
+</tr>""")
+        th_cells = "".join(
+            f'<th style="text-align:left;padding:10px 12px;font-size:11px;'
+            f'font-weight:500;letter-spacing:0.06em;text-transform:uppercase;'
+            f'color:var(--ink-3);background:var(--surface-2);'
+            f'border-bottom:1px solid var(--line)">{i18n.t(k)}</th>'
+            for k in ("audit_th_when", "audit_th_entity", "audit_th_field",
+                       "audit_th_old", "audit_th_new", "audit_th_who",
+                       "audit_th_source")
+        )
+        st.markdown(
+            f'<div class="ku-card ku-card-flush"><table style="width:100%;'
+            f'border-collapse:collapse">'
+            f'<thead><tr>{th_cells}</tr></thead>'
+            f'<tbody>{"".join(rows_html)}</tbody></table></div>',
+            unsafe_allow_html=True,
+        )
 
 style.footer()

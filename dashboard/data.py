@@ -406,6 +406,57 @@ def dq_examples(rule: str, limit: int = 25) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Concentration risk (Klumpenrisiko) — single-name, canton, branch
+# ---------------------------------------------------------------------------
+@st.cache_data(ttl=300, show_spinner=False)
+def total_exposure_chf() -> float:
+    return float(query("SELECT SUM(current_outstanding) AS s FROM loan").iloc[0]["s"] or 0.0)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def concentration_single_name(limit: int = 25) -> pd.DataFrame:
+    return query("""
+        SELECT c.client_id, c.first_name, c.last_name, c.segment,
+               COUNT(l.loan_id)               AS n_loans,
+               SUM(l.current_outstanding)     AS exposure
+          FROM loan l JOIN client c ON c.client_id = l.primary_client_id
+         GROUP BY c.client_id, c.first_name, c.last_name, c.segment
+         ORDER BY exposure DESC LIMIT :n
+    """, {"n": int(limit)})
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def concentration_canton(limit: int = 26) -> pd.DataFrame:
+    return query("""
+        SELECT a.canton           AS canton,
+               COUNT(l.loan_id)   AS n_loans,
+               SUM(l.current_outstanding) AS exposure
+          FROM loan l
+          JOIN property p USING(property_id)
+          JOIN address  a ON a.address_id = p.address_id
+         WHERE length(a.canton) = 2
+         GROUP BY a.canton
+         ORDER BY exposure DESC LIMIT :n
+    """, {"n": int(limit)})
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def concentration_noga(limit: int = 15) -> pd.DataFrame:
+    return query("""
+        SELECT c.noga_code        AS noga_code,
+               n.label_de         AS noga_label,
+               COUNT(l.loan_id)   AS n_loans,
+               SUM(l.current_outstanding) AS exposure
+          FROM loan l
+          JOIN client c ON c.client_id = l.primary_client_id
+          LEFT JOIN noga n ON n.code = c.noga_code
+         WHERE c.noga_code IS NOT NULL
+         GROUP BY c.noga_code, n.label_de
+         ORDER BY exposure DESC LIMIT :n
+    """, {"n": int(limit)})
+
+
+# ---------------------------------------------------------------------------
 # Drill-down helpers — return loan-level / event-level rows behind an aggregation
 # ---------------------------------------------------------------------------
 @st.cache_data(ttl=180, show_spinner=False)
