@@ -298,6 +298,76 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+style.section_head(i18n.t("dunning_section"), count=i18n.t("dunning_section_sub"))
+import pandas as _pd  # local alias to keep render below tidy
+try:
+    dunning = data.query("""
+        SELECT d.dunning_id, d.loan_id, d.step, d.step_label, d.issued_date,
+               d.due_date, d.amount_overdue_chf, d.fee_chf, d.status,
+               c.first_name, c.last_name, ad.canton
+          FROM dunning_step d
+          JOIN loan l    ON l.loan_id    = d.loan_id
+          JOIN client c  ON c.client_id  = l.primary_client_id
+          JOIN property p ON p.property_id = l.property_id
+          JOIN address ad ON ad.address_id = p.address_id
+         WHERE d.status IN ('open','escalated')
+         ORDER BY d.step DESC, d.amount_overdue_chf DESC LIMIT 100
+    """)
+except Exception:
+    dunning = _pd.DataFrame()
+
+if dunning.empty:
+    st.info(i18n.t("dunning_no_active"))
+else:
+    auth_suffix = f"&k={style.auth_token()}" if style.auth_token() else ""
+    rows = []
+    for _, r in dunning.iterrows():
+        step = int(r["step"])
+        kind = "red" if step >= 3 else ("amber" if step == 2 else "green")
+        loan_url = f"/Kreditdossier?loan_id={int(r['loan_id'])}{auth_suffix}&lang={LANG}"
+        name = f"{r.get('first_name') or ''} {r.get('last_name') or ''}".strip()
+        rows.append(f"""
+<tr>
+  <td>{style.chip(f"Stufe {step}" if LANG == "de" else f"Step {step}", kind)}</td>
+  <td style="color:var(--ink-2);font-size:12.5px">{r['step_label']}</td>
+  <td>
+    <a href="{loan_url}" target="_self" style="color:inherit;text-decoration:none">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">K-{int(r['loan_id']):06d}</div>
+      <div style="color:var(--ink);font-weight:500;font-size:12.5px">{name}</div>
+    </a>
+  </td>
+  <td>{style.tag_canton(r.get('canton')) if r.get('canton') else '—'}</td>
+  <td style="color:var(--ink-3);font-family:var(--mono);font-size:11.5px">{r['issued_date']}</td>
+  <td style="color:var(--ink-3);font-family:var(--mono);font-size:11.5px">{r['due_date']}</td>
+  <td style="text-align:right;font-variant-numeric:tabular-nums">{style.fmt_chf(r['amount_overdue_chf']).replace(' CHF','')}</td>
+  <td style="text-align:right">{r['fee_chf']:.0f}</td>
+  <td>{style.chip(r['status'], 'red' if r['status']=='escalated' else 'amber')}</td>
+</tr>""")
+    th_titles = (
+        (i18n.t("dunning_th_step"), "Beschreibung", i18n.t("klr_th_client"),
+         i18n.t("klr_th_canton"), i18n.t("dunning_th_issued"),
+         i18n.t("dunning_th_due"), i18n.t("dunning_th_overdue"),
+         i18n.t("dunning_th_fee"), i18n.t("dunning_th_status"))
+        if LANG == "de" else
+        (i18n.t("dunning_th_step"), "Description", i18n.t("klr_th_client"),
+         i18n.t("klr_th_canton"), i18n.t("dunning_th_issued"),
+         i18n.t("dunning_th_due"), i18n.t("dunning_th_overdue"),
+         i18n.t("dunning_th_fee"), i18n.t("dunning_th_status"))
+    )
+    th = "".join(
+        f'<th style="text-align:left;padding:10px 12px;font-size:11px;'
+        f'font-weight:500;letter-spacing:0.06em;text-transform:uppercase;'
+        f'color:var(--ink-3);background:var(--surface-2);'
+        f'border-bottom:1px solid var(--line)">{c}</th>' for c in th_titles
+    )
+    st.markdown(
+        f'<div class="ku-card ku-card-flush"><table style="width:100%;'
+        f'border-collapse:collapse">'
+        f'<thead><tr>{th}</tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div>',
+        unsafe_allow_html=True,
+    )
+
 style.section_head("SLA-Matrix · Bearbeitungsfristen pro Auslöser" if LANG == "de"
                    else "SLA matrix · deadlines per trigger")
 sla_reference.render_reference(in_expander=False)

@@ -42,6 +42,8 @@ TABLES = [
     "portfolio", "position",
     # accounts (large)
     "account", "account_tx",
+    # mahnwesen
+    "dunning_step",
     # stress
     "stress_scenario", "stress_index_overlay", "stress_rate_overlay",
     "stress_macro_overlay", "stress_property_value",

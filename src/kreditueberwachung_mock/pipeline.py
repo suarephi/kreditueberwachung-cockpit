@@ -18,6 +18,7 @@ from . import inconsistencies as inc_mod
 from . import securities as securities_mod
 from . import transactions as tx_mod
 from . import events as events_mod
+from . import dunning as dunning_mod
 
 
 # Property fields that only make sense for buildings, never for raw land.
@@ -223,6 +224,7 @@ SCHEMA_FILES = [
     "006_stress.sql",
     "007_securities.sql",
     "008_accounts.sql",
+    "009_dunning.sql",
 ]
 
 
@@ -342,6 +344,9 @@ def run() -> None:
                 material_changes, events, aff, loans
             )
 
+        with _step("dunning"):
+            dunning = dunning_mod.generate_dunning_steps(loans, events, rm)
+
         addresses_all = pd.concat([addr_clients, addr_property], ignore_index=True)
 
         with _step("bauland_cleanup"):
@@ -398,6 +403,9 @@ def run() -> None:
             _bulk_insert(con, "account",                accounts)
             _bulk_insert(con, "account_tx",             account_tx, chunksize=20_000)
 
+        with _step("bulk insert dunning"):
+            _bulk_insert(con, "dunning_step",           dunning)
+
         with _step("dump CSVs"):
             for name, df in {
                 "client": clients_df, "address": addresses_all, "household": households,
@@ -408,6 +416,7 @@ def run() -> None:
                 "fpre_index_history": fpre, "rate_history": rates,
                 "portfolio": portfolios, "position": positions,
                 "account": accounts, "account_tx": account_tx,
+                "dunning_step": dunning,
             }.items():
                 df.to_csv(config.CSV_DIR / f"{name}.csv", index=False)
 
@@ -429,7 +438,7 @@ def _write_stats(con: sqlite3.Connection) -> None:
         "address", "client", "household", "client_household", "property",
         "valuation", "loan", "tranche", "income", "affordability_assessment",
         "risk_metrics", "event", "loan_case", "document", "audit_log",
-        "portfolio", "position", "account", "account_tx",
+        "portfolio", "position", "account", "account_tx", "dunning_step",
     ]
     rows = []
     for t in tables:

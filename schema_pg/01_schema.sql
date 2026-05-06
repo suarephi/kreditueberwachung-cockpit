@@ -24,6 +24,7 @@ DROP TABLE IF EXISTS document                    CASCADE;
 DROP TABLE IF EXISTS loan_case                   CASCADE;
 DROP TABLE IF EXISTS event                       CASCADE;
 
+DROP TABLE IF EXISTS dunning_step                CASCADE;
 DROP TABLE IF EXISTS account_tx                  CASCADE;
 DROP TABLE IF EXISTS account                     CASCADE;
 DROP TABLE IF EXISTS position                    CASCADE;
@@ -396,6 +397,25 @@ CREATE TABLE account_tx (
 );
 CREATE INDEX ix_tx_account_date ON account_tx(account_id, tx_date);
 CREATE INDEX ix_tx_category     ON account_tx(category);
+
+-- ---------- MAHNWESEN (Swiss banking workflow) ----------
+CREATE TABLE dunning_step (
+  dunning_id              BIGINT PRIMARY KEY,
+  loan_id                 BIGINT NOT NULL REFERENCES loan(loan_id),
+  step                    INTEGER NOT NULL CHECK (step BETWEEN 1 AND 4),
+  step_label              TEXT NOT NULL,
+  issued_date             TEXT NOT NULL,
+  due_date                TEXT NOT NULL,
+  amount_overdue_chf      DOUBLE PRECISION NOT NULL,
+  fee_chf                 DOUBLE PRECISION NOT NULL DEFAULT 0,
+  status                  TEXT NOT NULL DEFAULT 'open'
+                              CHECK (status IN ('open','paid','escalated','closed')),
+  resolved_date           TEXT,
+  assigned_officer        TEXT,
+  reference               TEXT
+);
+CREATE INDEX ix_dunning_loan ON dunning_step(loan_id, step);
+CREATE INDEX ix_dunning_status ON dunning_step(status);
 
 -- ---------- SURVEILLANCE ----------
 CREATE TABLE event (

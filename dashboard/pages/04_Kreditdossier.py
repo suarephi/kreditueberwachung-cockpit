@@ -193,6 +193,56 @@ with tabs[1]:
 with tabs[2]:
     st.dataframe(i18n.rename(dossier["affordability"], "affordability_assessment"),
                  use_container_width=True, hide_index=True)
+    # Mahnwesen-Stufen für diesen Loan, falls vorhanden
+    try:
+        dunning_loan = data.query("""
+            SELECT step, step_label, issued_date, due_date,
+                   amount_overdue_chf, fee_chf, status, resolved_date
+              FROM dunning_step WHERE loan_id = :i ORDER BY step
+        """, {"i": int(selected_loan_id)})
+    except Exception:
+        dunning_loan = pd.DataFrame()
+    if not dunning_loan.empty:
+        st.markdown(f"**{i18n.t('dunning_dossier_label')}**")
+        rows_html = []
+        for _, r in dunning_loan.iterrows():
+            step = int(r["step"])
+            kind = "red" if step >= 3 else ("amber" if step == 2 else "green")
+            rows_html.append(f"""
+<tr>
+  <td>{style.chip(f"Stufe {step}" if LANG == "de" else f"Step {step}", kind)}</td>
+  <td style="color:var(--ink-2)">{r['step_label']}</td>
+  <td style="font-family:var(--mono);font-size:11.5px">{r['issued_date']}</td>
+  <td style="font-family:var(--mono);font-size:11.5px">{r['due_date']}</td>
+  <td style="text-align:right">{r['amount_overdue_chf']:,.0f}</td>
+  <td style="text-align:right">{r['fee_chf']:.0f}</td>
+  <td>{style.chip(r['status'], 'red' if r['status']=='escalated' else ('green' if r['status']=='paid' else 'amber'))}</td>
+</tr>""")
+        th_titles = (
+            (i18n.t("dunning_th_step"), "Beschreibung",
+             i18n.t("dunning_th_issued"), i18n.t("dunning_th_due"),
+             i18n.t("dunning_th_overdue"), i18n.t("dunning_th_fee"),
+             i18n.t("dunning_th_status"))
+            if LANG == "de" else
+            (i18n.t("dunning_th_step"), "Description",
+             i18n.t("dunning_th_issued"), i18n.t("dunning_th_due"),
+             i18n.t("dunning_th_overdue"), i18n.t("dunning_th_fee"),
+             i18n.t("dunning_th_status"))
+        )
+        th = "".join(
+            f'<th style="text-align:left;padding:8px 10px;font-size:11px;'
+            f'font-weight:500;letter-spacing:0.06em;text-transform:uppercase;'
+            f'color:var(--ink-3);background:var(--surface-2);'
+            f'border-bottom:1px solid var(--line)">{c}</th>'
+            for c in th_titles
+        )
+        st.markdown(
+            f'<div class="ku-card ku-card-flush" style="margin-top:10px">'
+            f'<table style="width:100%;border-collapse:collapse">'
+            f'<thead><tr>{th}</tr></thead>'
+            f'<tbody>{"".join(rows_html)}</tbody></table></div>',
+            unsafe_allow_html=True,
+        )
 with tabs[3]:
     st.dataframe(i18n.rename(dossier["risk"], "risk_metrics"),
                  use_container_width=True, hide_index=True)
