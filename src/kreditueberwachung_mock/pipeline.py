@@ -202,6 +202,108 @@ def _accounts_to_events_and_affordability(
     return events, affordability
 
 
+def _apply_ifrs9_staging(rm: pd.DataFrame, events: pd.DataFrame,
+                          dunning: pd.DataFrame) -> pd.DataFrame:
+    """Compute IFRS 9 stage (1/2/3) and lifetime ECL per loan.
+
+    Stage 3 (credit-impaired):
+      - npl_flag = 1
+      - days_past_due > 90
+      - forbearance_flag = 1
+      - dunning step ≥ 3 (Bonitätsentscheid or Verwertung)
+
+    Stage 2 (Significant Increase in Credit Risk):
+      - watchlist_flag = 1
+      - days_past_due > 30
+      - covenant_breach_flag = 1
+      - any open income_drop / employer_change / covenant_breach_dsti event
+      - dunning step 1 or 2
+
+    Stage 1 (performing):
+      - everything else.
+
+    Lifetime EL:
+      Stage 1: 12-mo ECL (= existing expected_loss)
+      Stage 2: 1 - (1 - pd_1y)^7 lifetime PD over 7-year residual life × LGD × EAD
+      Stage 3: 1.0 × LGD × EAD
+    """
+    if rm is None or rm.empty:
+        return rm
+
+    # Open events that count as SICR triggers
+    sicr_event_loans: set[int] = set()
+    if events is not None and not events.empty:
+        mask = events["event_type"].isin([
+            "income_drop", "employer_change", "covenant_breach_dsti",
+            "covenant_breach_ltv", "property_value_drop_>10%", "betreibung_recorded",
+        ]) & events["status"].isin(["open", "in_progress", "escalated"])
+        sicr_event_loans = set(events.loc[mask, "loan_id"].astype(int).tolist())
+
+    # Dunning levels: collect highest open step per loan
+    dunning_max_step: dict[int, int] = {}
+    if dunning is not None and not dunning.empty:
+        active = dunning[dunning["status"].isin(["open", "escalated"])]
+        for loan_id, grp in active.groupby("loan_id"):
+            dunning_max_step[int(loan_id)] = int(grp["step"].max())
+
+    stages: list[int] = []
+    reasons: list[str] = []
+    lifetime_el: list[float] = []
+    for _, r in rm.iterrows():
+        loan_id = int(r["loan_id"])
+        pd_1y = float(r["pd_1y"])
+        lgd = float(r["lgd"])
+        ead = float(r["ead"])
+        max_step = dunning_max_step.get(loan_id, 0)
+
+        # Stage 3 first
+        stage3_reasons = []
+        if int(r.get("npl_flag", 0)) == 1:
+            stage3_reasons.append("NPL-Flag")
+        if int(r.get("days_past_due", 0)) > 90:
+            stage3_reasons.append("> 90 Tage überfällig")
+        if int(r.get("forbearance_flag", 0)) == 1:
+            stage3_reasons.append("Forbearance")
+        if max_step >= 3:
+            stage3_reasons.append(f"Mahnstufe {max_step}")
+        if stage3_reasons:
+            stages.append(3)
+            reasons.append(", ".join(stage3_reasons))
+            lifetime_el.append(round(lgd * ead, 0))
+            continue
+
+        # Stage 2 (SICR) next
+        stage2_reasons = []
+        if int(r.get("watchlist_flag", 0)) == 1:
+            stage2_reasons.append("Beobachtungsliste")
+        if int(r.get("days_past_due", 0)) > 30:
+            stage2_reasons.append("> 30 Tage überfällig")
+        if int(r.get("covenant_breach_flag", 0)) == 1:
+            stage2_reasons.append("Covenant-Verletzung")
+        if loan_id in sicr_event_loans:
+            stage2_reasons.append("SICR-Event")
+        if max_step in (1, 2):
+            stage2_reasons.append(f"Mahnstufe {max_step}")
+        if stage2_reasons:
+            stages.append(2)
+            reasons.append(", ".join(stage2_reasons))
+            # Lifetime PD = 1 - (1 - pd_1y)^7 (7-year residual approximation)
+            lifetime_pd = 1.0 - (1.0 - pd_1y) ** 7
+            lifetime_el.append(round(lifetime_pd * lgd * ead, 0))
+            continue
+
+        # Stage 1
+        stages.append(1)
+        reasons.append("")
+        lifetime_el.append(round(float(r.get("expected_loss", pd_1y * lgd * ead)), 0))
+
+    rm = rm.copy()
+    rm["ifrs9_stage"] = stages
+    rm["ifrs9_sicr_reason"] = reasons
+    rm["lifetime_el"] = lifetime_el
+    return rm
+
+
 def _null_bauland_fields(properties: pd.DataFrame) -> None:
     """Erase building-only attributes for Bauland rows so the dossier doesn't pretend
     a piece of land has rooms, heating, or a construction year."""
@@ -346,6 +448,9 @@ def run() -> None:
 
         with _step("dunning"):
             dunning = dunning_mod.generate_dunning_steps(loans, events, rm)
+
+        with _step("ifrs9_staging"):
+            rm = _apply_ifrs9_staging(rm, events, dunning)
 
         addresses_all = pd.concat([addr_clients, addr_property], ignore_index=True)
 

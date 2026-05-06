@@ -110,6 +110,9 @@ CREATE TABLE risk_metrics (
   npl_flag                 INTEGER NOT NULL DEFAULT 0,
   forbearance_flag         INTEGER NOT NULL DEFAULT 0,
   days_past_due            INTEGER NOT NULL DEFAULT 0,
-  covenant_breach_flag     INTEGER NOT NULL DEFAULT 0
+  covenant_breach_flag     INTEGER NOT NULL DEFAULT 0,
+  ifrs9_stage              INTEGER,
+  ifrs9_sicr_reason        TEXT,
+  lifetime_el              REAL
 );
 CREATE INDEX ix_rm_loan ON risk_metrics(loan_id, as_of_date);

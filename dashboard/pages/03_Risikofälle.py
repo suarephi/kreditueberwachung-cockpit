@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 import streamlit as st          # noqa: E402
 import plotly.express as px     # noqa: E402
 
+import pandas as _pd                              # noqa: E402
 from dashboard import data, charts, style, sla_reference, i18n    # noqa: E402
 
 st.set_page_config(page_title="Risikofälle", layout="wide",
@@ -147,6 +148,115 @@ with dd_b:
             "dsti_threshold": i18n.col("dsti_threshold", "affordability_assessment", LANG),
             "income_basis": i18n.col("income_basis", "affordability_assessment", LANG),
         }), hide_index=True, use_container_width=True, height=380)
+
+style.section_head(i18n.t("ifrs_section"), count=i18n.t("ifrs_section_sub"))
+try:
+    ifrs_summary = data.query("""
+        SELECT ifrs9_stage, COUNT(*) AS n,
+               ROUND(CAST(SUM(lifetime_el)/1e6 AS numeric), 2) AS lt_el_mchf
+          FROM risk_metrics
+         WHERE ifrs9_stage IS NOT NULL
+         GROUP BY ifrs9_stage ORDER BY ifrs9_stage
+    """)
+except Exception:
+    ifrs_summary = _pd.DataFrame()
+
+if ifrs_summary.empty:
+    st.info("Noch kein IFRS-9-Staging berechnet. Generator neu laufen lassen."
+            if LANG == "de" else
+            "IFRS-9 staging not computed yet. Re-run the generator.")
+else:
+    s_dict = ifrs_summary.set_index("ifrs9_stage")["n"].to_dict()
+    el_dict = ifrs_summary.set_index("ifrs9_stage")["lt_el_mchf"].to_dict()
+    total_lt_el = float(ifrs_summary["lt_el_mchf"].sum())
+    style.kpi_strip([
+        {"label": i18n.t("ifrs_kpi_s1"),
+         "value": style.fmt_int(int(s_dict.get(1, 0))),
+         "delta_html": style.delta(
+             f"{el_dict.get(1, 0):.1f} Mio. CHF" if LANG == "de"
+             else f"{el_dict.get(1, 0):.1f} CHF mn",
+             "12-Mt ECL" if LANG == "de" else "12-mo ECL", "flat", "good")},
+        {"label": i18n.t("ifrs_kpi_s2"),
+         "value": style.fmt_int(int(s_dict.get(2, 0))),
+         "delta_html": style.delta(
+             f"{el_dict.get(2, 0):.1f} Mio. CHF" if LANG == "de"
+             else f"{el_dict.get(2, 0):.1f} CHF mn",
+             "Lifetime ECL" if LANG == "de" else "Lifetime ECL", "up", "bad")},
+        {"label": i18n.t("ifrs_kpi_s3"),
+         "value": style.fmt_int(int(s_dict.get(3, 0))),
+         "delta_html": style.delta(
+             f"{el_dict.get(3, 0):.1f} Mio. CHF" if LANG == "de"
+             else f"{el_dict.get(3, 0):.1f} CHF mn",
+             "Voll LGD×EAD" if LANG == "de" else "Full LGD×EAD", "up", "bad")},
+        {"label": i18n.t("ifrs_kpi_lifetime_el"),
+         "value": f"{total_lt_el:.1f}",
+         "unit": "Mio. CHF" if LANG == "de" else "CHF mn"},
+    ])
+
+    # Stage 2 + 3 detail tables
+    auth_suffix = f"&k={style.auth_token()}" if style.auth_token() else ""
+    for st_num, card_key in [(2, "ifrs_card_stage2"), (3, "ifrs_card_stage3")]:
+        df = data.query("""
+            SELECT l.loan_id, c.first_name, c.last_name, ad.canton,
+                   p.object_type, l.current_outstanding, l.ltv_pct,
+                   r.pd_1y, r.expected_loss, r.lifetime_el, r.ifrs9_sicr_reason
+              FROM risk_metrics r
+              JOIN loan l    ON l.loan_id = r.loan_id
+              JOIN client c  ON c.client_id = l.primary_client_id
+              JOIN property p USING(property_id)
+              JOIN address ad ON ad.address_id = p.address_id
+             WHERE r.ifrs9_stage = :s
+             ORDER BY r.lifetime_el DESC LIMIT 50
+        """, {"s": st_num})
+        if df.empty:
+            continue
+        st.markdown(f"<div class='ku-cardhead' style='margin:14px 0 6px'>"
+                    f"<div><div class='ku-cardtitle'>{i18n.t(card_key)}</div></div>"
+                    f"</div>", unsafe_allow_html=True)
+        rows = []
+        for _, r in df.iterrows():
+            loan_url = f"/Kreditdossier?loan_id={int(r['loan_id'])}{auth_suffix}&lang={LANG}"
+            name = f"{r.get('first_name') or ''} {r.get('last_name') or ''}".strip()
+            chip_kind = "red" if st_num == 3 else "amber"
+            rows.append(f"""
+<tr>
+  <td>{style.chip(f"S{st_num}", chip_kind)}</td>
+  <td>
+    <a href="{loan_url}" target="_self" style="color:inherit;text-decoration:none">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">K-{int(r['loan_id']):06d}</div>
+      <div style="color:var(--ink);font-weight:500;font-size:12.5px">{name}</div>
+    </a>
+  </td>
+  <td>{style.tag_canton(r.get('canton')) if r.get('canton') else '—'}</td>
+  <td style="font-size:12.5px">{r.get('object_type') or '—'}</td>
+  <td style="text-align:right">{r['ltv_pct']:.1f}%</td>
+  <td style="text-align:right">{r['pd_1y']:.4f}</td>
+  <td style="text-align:right;font-variant-numeric:tabular-nums">{style.fmt_chf(r['lifetime_el']).replace(' CHF','')}</td>
+  <td style="color:var(--ink-3);font-size:11.5px">{r.get('ifrs9_sicr_reason') or '—'}</td>
+</tr>""")
+        th_titles = (
+            (i18n.t("ifrs_th_stage"), i18n.t("klr_th_client"),
+             i18n.t("klr_th_canton"), "Objekt", "LTV", "PD 1J",
+             i18n.t("ifrs_th_lifetime_el"), i18n.t("ifrs_th_reason"))
+            if LANG == "de" else
+            (i18n.t("ifrs_th_stage"), i18n.t("klr_th_client"),
+             i18n.t("klr_th_canton"), "Object", "LTV", "PD 1Y",
+             i18n.t("ifrs_th_lifetime_el"), i18n.t("ifrs_th_reason"))
+        )
+        th = "".join(
+            f'<th style="text-align:left;padding:9px 10px;font-size:11px;'
+            f'font-weight:500;letter-spacing:0.06em;text-transform:uppercase;'
+            f'color:var(--ink-3);background:var(--surface-2);'
+            f'border-bottom:1px solid var(--line)">{c}</th>'
+            for c in th_titles
+        )
+        st.markdown(
+            f'<div class="ku-card ku-card-flush"><table style="width:100%;'
+            f'border-collapse:collapse">'
+            f'<thead><tr>{th}</tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div>',
+            unsafe_allow_html=True,
+        )
 
 style.section_head(i18n.t("klr_section"), count=i18n.t("klr_section_sub"))
 total_exp = data.total_exposure_chf()
@@ -299,7 +409,6 @@ st.markdown(
 )
 
 style.section_head(i18n.t("dunning_section"), count=i18n.t("dunning_section_sub"))
-import pandas as _pd  # local alias to keep render below tidy
 try:
     dunning = data.query("""
         SELECT d.dunning_id, d.loan_id, d.step, d.step_label, d.issued_date,
